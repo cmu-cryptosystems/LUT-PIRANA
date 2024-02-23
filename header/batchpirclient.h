@@ -3,40 +3,52 @@
 
 
 #include "batchpirparams.h"
-#include "client.h"
 #include "src/utils.h"
+#ifdef DEBUG
+#include "header/batchpirserver.h"
+#endif
 
 using namespace std;
 
 class BatchPIRClient {
 public:
     BatchPIRClient(const BatchPirParams& params);
-    void set_map(std::unordered_map<std::string, uint64_t> map);
-    vector<PIRQuery> create_queries(vector<uint64_t> batch);
-    vector<RawResponses> decode_responses(vector<PIRResponseList> responses);
-    vector<RawResponses> decode_responses_chunks(PIRResponseList responses);
+    vector<PIRQuery> create_queries(vector<vector<string>> batch);
+    RawResponses decode_responses(vector<PIRResponseList> responses, vector<prefixblock> nonces, vector<block> encryption_masks);
 
     std::pair<seal::GaloisKeys, seal::RelinKeys> get_public_keys();
-    bool cuckoo_hash_witout_checks(vector<uint64_t> batch);
-    vector<uint64_t> get_cuckoo_table();
     size_t get_serialized_commm_size();
     
+    std::vector<vector<uint64_t>> bucket_to_position;
+    // bucket index to query index
+    std::unordered_map<uint64_t, uint64_t> cuckoo_map;
+    // query index to bucket index
+    std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;
 
-private:
+// private:
     BatchPirParams batchpir_params_;
     size_t max_attempts_;
-    vector<uint64_t> cuckoo_table_;
     bool is_cuckoo_generated_;
-    bool is_map_set_;
-    std::unordered_map<std::string, uint64_t> map_;
-    vector<Client> client_list_;
     size_t serialized_comm_size_ = 0;
 
+    seal::SEALContext* context_;
+    seal::KeyGenerator* keygen_;
+    seal::SecretKey secret_key_;
+    seal::Encryptor* encryptor_;
+    seal::Decryptor* decryptor_;
+    seal::BatchEncoder* batch_encoder_;
+    seal::GaloisKeys gal_keys_;
+    seal::RelinKeys relin_keys_;
+
+    #ifdef DEBUG 
+    // debug
+    seal::Evaluator *evaluator_;
+    BatchPIRServer *server;
+    #endif
+
     void measure_size(vector<Ciphertext> list, size_t seeded = 1);
-    bool cuckoo_hash(vector<uint64_t> batch);
-    void translate_cuckoo();
+    bool cuckoo_hash(vector<vector<string>> batch);
     void prepare_pir_clients();
-    bool cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>> key_to_buckets, std::unordered_map<uint64_t, uint64_t>& bucket_to_key);
 };
 
 #endif // BATCHPIRCLIENT_H

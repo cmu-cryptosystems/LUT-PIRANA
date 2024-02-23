@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 project(VectorizedBatchPIR)
 
@@ -25,6 +25,8 @@ add_executable(vectorized_batch_pir ${SOURCES})
 # Set include directories
 target_include_directories(vectorized_batch_pir PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_include_directories(vectorized_batch_pir PUBLIC extern/tqdm/include)
+
 # Set C++ standard
 set_target_properties(vectorized_batch_pir PROPERTIES CXX_STANDARD 11)
 
@@ -32,6 +34,15 @@ set_target_properties(vectorized_batch_pir PROPERTIES CXX_STANDARD 11)
 # Add seal library
 find_package(SEAL 4.1 REQUIRED)
 target_link_libraries(vectorized_batch_pir SEAL::seal)
+
+find_package(FMT REQUIRED)
+target_link_libraries(vectorized_batch_pir fmt::fmt)
+
+find_package(Boost REQUIRED)
+target_include_directories(vectorized_batch_pir PUBLIC ${Boost_INCLUDE_DIR})
+
+find_package(OpenMP REQUIRED)
+target_link_libraries(vectorized_batch_pir OpenMP::OpenMP_CXX)
 
 # Add compiler flags for optimization
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

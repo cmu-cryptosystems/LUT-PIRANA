@@ -1,300 +1,234 @@
 #include "batchpirclient.h"
+#include <cstdint>
+#include <seal/ciphertext.h>
+#include <seal/evaluator.h>
+#include <seal/plaintext.h>
+#include <stdexcept>
+#include <sys/types.h>
 
 BatchPIRClient::BatchPIRClient(const BatchPirParams &params)
-    : batchpir_params_(params), is_cuckoo_generated_(false), is_map_set_(false)
+    : batchpir_params_(params), is_cuckoo_generated_(false)
 {
     max_attempts_ = batchpir_params_.get_max_attempts();
 
     prepare_pir_clients();
 }
 
-bool BatchPIRClient::cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>> key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key)
-{
-    if (attempt > max_attempts_)
-    {
-        throw std::invalid_argument("Error: Cuckoo hashing failed");
-        return false;
-    }
-
-    for (auto v : key_to_buckets[key])
-    {
-        if (bucket_to_key.find(v) == bucket_to_key.end())
-        {
-            bucket_to_key[v] = key;
-            return true;
-        }
-    }
-
-    std::vector<size_t> candidate_buckets = key_to_buckets[key];
-    int idx = rand() % candidate_buckets.size();
-    auto picked_bucket = candidate_buckets[idx];
-    auto old = bucket_to_key[picked_bucket];
-    bucket_to_key[picked_bucket] = key;
-
-    cuckoo_insert(old, attempt + 1, key_to_buckets, bucket_to_key);
-    return true;
-}
-
-vector<PIRQuery> BatchPIRClient::create_queries(vector<uint64_t> batch)
+vector<PIRQuery> BatchPIRClient::create_queries(vector<vector<string>> batch)
 {
 
     if (batch.size() != batchpir_params_.get_batch_size())
         throw std::runtime_error("Error: batch is not selected size");
 
     cuckoo_hash(batch);
-    vector<PIRQuery> queries;
 
-    size_t max_bucket_size = batchpir_params_.get_max_bucket_size();
+    size_t batch_size = batchpir_params_.get_batch_size();
+    size_t bucket_size = batchpir_params_.get_bucket_size();
     size_t entry_size = batchpir_params_.get_entry_size();
-    size_t dim_size = batchpir_params_.get_first_dimension_size();
+    size_t w = batchpir_params_.get_num_hash_funcs();
     auto max_slots = batchpir_params_.get_seal_parameters().poly_modulus_degree();
-    auto num_buckets = cuckoo_table_.size();
-    size_t per_server_capacity = max_slots / dim_size;
-    size_t num_servers = ceil(num_buckets / per_server_capacity);
+    auto num_buckets = batchpir_params_.get_num_buckets();
 
-    auto previous_idx = 0;
-    for (int i = 0; i < client_list_.size(); i++)
+    const size_t m = DatabaseConstants::PIRANA_m;
+    
+    Plaintext pt;
+    Ciphertext ct;
+
+    vector<PIRQuery> queries(w, PIRQuery(m));
+    // queries[1..w][1..m] is a ciphertext
+    // Push the batch into the queries
+    for (int i = 0; i < w; i++)
     {
-        const size_t offset = std::min(per_server_capacity, num_buckets - previous_idx);
-        vector<uint64_t> sub_buckets(cuckoo_table_.begin() + previous_idx, cuckoo_table_.begin() + previous_idx + offset);
-        previous_idx += offset;
-        auto query = client_list_[i].gen_query(sub_buckets);
-        measure_size(query, 2);
-        queries.push_back(query);
+        vector<vector<uint64_t>> q(m, vector<uint64_t>(num_buckets));
+        vector<vector<uint64_t>> codes(num_buckets);
+        for (int j = 0; j < num_buckets; j++)
+        {
+            codes[j] = utils::get_perfect_constant_weight_codeword(bucket_to_position[j][i], m, DatabaseConstants::PIRANA_k);
+            for (int k = 0; k < m; k++) {
+                q[k][j] = codes[j][k];
+            }
+        }
+
+        for (int k = 0; k < m; k++) {
+            batch_encoder_->encode(q[k], pt);
+            encryptor_->encrypt_symmetric(pt, queries[i][k]);
+        }
+
+        // check
+        #ifdef DEBUG 
+        cout << "checking queries" << endl;
+        #pragma omp parallel for
+        for (int column = 0; column < bucket_size; column++) {
+            auto code = utils::get_perfect_constant_weight_codeword(column, m, DatabaseConstants::PIRANA_k);
+            vector<uint64_t> q;
+            for (int k = 0; k < m; k++) {
+                if (code[k]) q.push_back(k);
+            }
+            Ciphertext prod;
+            evaluator_->multiply(queries[i][q[0]], queries[i][q[1]], prod);
+            Plaintext pt;
+            decryptor_->decrypt(prod, pt);
+            vector<uint64_t> result;
+            batch_encoder_->decode(pt, result);
+            for (int row = 0; row < num_buckets; row++) {
+                if (result[row] != (bucket_to_position[row][i] == column)) {
+                    throw std::runtime_error(fmt::format("Error: {} {} {}", i, column, row));
+                }
+            }
+        }
+        #endif
+    }
+
+    for(auto& q: queries) {
+        measure_size(q);
     }
 
     return queries;
 }
 
 
-
-bool BatchPIRClient::cuckoo_hash(vector<uint64_t> batch)
+// batch contains the hash values
+bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
 {
 
-    if (!is_map_set_)
-    {
-        throw std::runtime_error("Error: Map is not set");
-    }
-
-    auto total_buckets = ceil(batchpir_params_.get_cuckoo_factor() * batchpir_params_.get_batch_size());
+    size_t total_buckets = batchpir_params_.get_num_buckets();
     auto db_entries = batchpir_params_.get_num_entries();
     auto num_candidates = batchpir_params_.get_num_hash_funcs();
+    size_t bucket_size = batchpir_params_.get_bucket_size();
     auto attempts = batchpir_params_.get_max_attempts();
+    auto batch_size = batchpir_params_.get_batch_size();
+    size_t w = batchpir_params_.get_num_hash_funcs();
 
-    if (batch.size() != batchpir_params_.get_batch_size())
+    if (batch.size() != batch_size)
     {
-        cout << batch.size() << " " << batchpir_params_.get_batch_size() << " " << endl;
+        cout << batch.size() << " " << batch_size << " " << endl;
         throw std::invalid_argument("Error: Batch size is wrong");
     }
 
-    cuckoo_table_.resize(std::ceil(batchpir_params_.get_batch_size() * batchpir_params_.get_cuckoo_factor()), batchpir_params_.get_default_value());
-
-    std::unordered_map<uint64_t, std::vector<size_t>> key_to_buckets;
-    for (auto v : batch)
+    std::unordered_map<uint64_t, std::vector<uint64_t>> key_to_buckets(batch_size);
+    std::unordered_map<uint64_t, std::vector<uint64_t>> key_to_position(batch_size);
+    
+    for (int i = 0; i < batch_size; i++)
     {
-        auto candidates = utils::get_candidate_buckets(v, num_candidates, total_buckets);
-        key_to_buckets[v] = candidates;
+        auto [candidate_buckets, candidate_positions]  = utils::get_candidates_with_hash_values(total_buckets, bucket_size, batch[i]);
+        key_to_buckets[i] = candidate_buckets;
+        key_to_position[i] = candidate_positions;
     }
-    std::unordered_map<uint64_t, uint64_t> bucket_to_key;
 
     // seed the random number generator with current time
-    srand(time(nullptr));
+    // srand(time(nullptr));
     for (auto const &[key, value] : key_to_buckets)
     {
-        cuckoo_insert(key, 0, key_to_buckets, bucket_to_key);
+        utils::cuckoo_insert(key, 0, key_to_buckets, cuckoo_map);
     }
-
-    for (auto const &[key, value] : bucket_to_key)
+    
+    bucket_to_position.resize(total_buckets, vector<uint64_t>(w, batchpir_params_.get_default_value()));
+    for (auto const &[key, value] : cuckoo_map)
     {
-        cuckoo_table_[key] = value;
+        bucket_to_position[key] = key_to_position[value];
+        inv_cuckoo_map[value] = key;
     }
-
-    bucket_to_key.clear();
-    key_to_buckets.clear();
 
     is_cuckoo_generated_ = true;
 
-    translate_cuckoo();
-    return true;
-}
-
-bool BatchPIRClient::cuckoo_hash_witout_checks(vector<uint64_t> batch)
-{
-
-    auto total_buckets = ceil(batchpir_params_.get_cuckoo_factor() * batchpir_params_.get_batch_size());
-    auto db_entries = batchpir_params_.get_num_entries();
-    auto num_candidates = batchpir_params_.get_num_hash_funcs();
-    auto attempts = batchpir_params_.get_max_attempts();
-
-    if (batch.size() != batchpir_params_.get_batch_size())
-    {
-        cout << batch.size() << " " << batchpir_params_.get_batch_size() << " " << endl;
-        throw std::invalid_argument("Error: Batch size is wrong");
-    }
-
-    cuckoo_table_.resize(std::ceil(batchpir_params_.get_batch_size() * batchpir_params_.get_cuckoo_factor()), batchpir_params_.get_default_value());
-
-    std::unordered_map<uint64_t, std::vector<size_t>> key_to_buckets;
-    for (auto v : batch)
-    {
-        auto candidates = utils::get_candidate_buckets(v, num_candidates, total_buckets);
-        key_to_buckets[v] = candidates;
-    }
-    std::unordered_map<uint64_t, uint64_t> bucket_to_key;
-
-    // seed the random number generator with current time
-    srand(time(nullptr));
-    for (auto const &[key, value] : key_to_buckets)
-    {
-        cuckoo_insert(key, 0, key_to_buckets, bucket_to_key);
-    }
-
-    for (auto const &[key, value] : bucket_to_key)
-    {
-        cuckoo_table_[key] = value;
-    }
-
-    bucket_to_key.clear();
-    key_to_buckets.clear();
-
-    is_cuckoo_generated_ = true;
-
-    // translate_cuckoo();
     return true;
 }
 
 void BatchPIRClient::measure_size(vector<Ciphertext> list, size_t seeded){
-
-
     for (int i=0; i < list.size(); i++){
-    serialized_comm_size_ += ceil(list[i].save_size()/seeded);
+        serialized_comm_size_ += ceil(list[i].save_size()/seeded);
     }
 }
 
 size_t BatchPIRClient::get_serialized_commm_size(){
-    return ceil(serialized_comm_size_/1024);
+    return ceil((double)serialized_comm_size_/1024);
 }
 
-
-void BatchPIRClient::set_map(std::unordered_map<std::string, uint64_t> map)
-{
-    map_ = map;
-    is_map_set_ = true;
-}
-
-
-vector<uint64_t> BatchPIRClient::get_cuckoo_table()
-{
-    return cuckoo_table_;
-}
-
-void BatchPIRClient::translate_cuckoo()
-{
-    if (!is_map_set_ || !is_cuckoo_generated_)
-    {
-        throw std::runtime_error("Error: Cannot translate the data because either the map has not been set or the cuckoo hash table has not been generated.");
-    }
-
-    auto num_buckets = cuckoo_table_.size();
-    for (int i = 0; i < num_buckets; i++)
-    {
-        // check if bucket is empty
-        if (cuckoo_table_[i] != batchpir_params_.get_default_value())
-        {
-            // convert from db index to bucket index
-            cuckoo_table_[i] = map_[to_string(cuckoo_table_[i]) + to_string(i)];
-        }
-    }
-}
 
 void BatchPIRClient::prepare_pir_clients()
 {
+    context_ = new SEALContext(batchpir_params_.get_seal_parameters());
+    batch_encoder_ = new BatchEncoder(*context_);
+    keygen_ = new KeyGenerator(*context_);
+    secret_key_ = keygen_->secret_key();
+    encryptor_ = new Encryptor(*context_, secret_key_);
+    decryptor_ = new Decryptor(*context_, secret_key_);
+    // setting client's public keys
+    keygen_->create_galois_keys(gal_keys_);
+    keygen_->create_relin_keys(relin_keys_);
 
-    size_t max_bucket_size = batchpir_params_.get_max_bucket_size();
-    size_t entry_size = batchpir_params_.get_entry_size();
-
-    size_t dim_size = batchpir_params_.get_first_dimension_size();
-    auto max_slots = batchpir_params_.get_seal_parameters().poly_modulus_degree();
-    auto num_buckets = ceil(batchpir_params_.get_batch_size() * batchpir_params_.get_cuckoo_factor());
-    size_t per_client_capacity = max_slots / dim_size;
-    size_t num_client = ceil(num_buckets / per_client_capacity);
-    auto remaining_buckets = num_buckets;
-    auto previous_idx = 0;
-    seal::KeyGenerator *keygen;
-
-    for (int i = 0; i < num_client; i++)
-    {
-        const size_t num_dbs = std::min(per_client_capacity, static_cast<size_t>(num_buckets - previous_idx));
-        previous_idx += num_dbs;
-        PirParams params(max_bucket_size, entry_size, num_dbs, batchpir_params_.get_seal_parameters(), dim_size);
-        if (i == 0)
-        {
-            Client client(params);
-            client_list_.push_back(client);
-            keygen = client.get_keygen();
-        }
-        else
-        {
-            Client client(params, keygen);
-            client_list_.push_back(client);
-        }
-    }
+    #ifdef DEBUG 
+    evaluator_ = new Evaluator(*context_);
+    #endif
 }
 
-vector<RawDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses)
+// return 1..w, 1..B
+RawResponses BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector<prefixblock> nonces, vector<block> encryption_masks)
 {
-    vector<std::vector<std::vector<unsigned char>>> entries_list;
-    for (int i = 0; i < responses.size(); i++)
+    cout << serialized_comm_size_ << endl;
+    serialized_comm_size_ += nonces.size() * sizeof(prefixblock);
+    auto plaint_bit_count_ = batchpir_params_.get_seal_parameters().plain_modulus().bit_count();
+    size_t w = batchpir_params_.get_num_hash_funcs();
+    const auto num_columns_per_entry = batchpir_params_.get_num_slots_per_entry();
+    const int size_of_coeff = plaint_bit_count_ - 1;
+    int entry_size = batchpir_params_.get_entry_size();
+    size_t batch_size = batchpir_params_.get_batch_size();
+    auto num_buckets = batchpir_params_.get_num_buckets();
+    vector<vector<block>> entries_list(num_buckets, vector<block>(w));
+    for (int hash_idx = 0; hash_idx < w; hash_idx++)
     {
-        std::vector<std::vector<unsigned char>> entries = client_list_[i].decode_responses(responses[i]);
-        entries_list.push_back(entries);
-    }
-    return entries_list;
-}
+        auto& response = responses[hash_idx];
+        measure_size(response);
 
-vector<RawDB> BatchPIRClient::decode_responses_chunks(PIRResponseList responses)
-{
-    vector<std::vector<std::vector<unsigned char>>> entries_list;
-    const size_t num_slots_per_entry = batchpir_params_.get_num_slots_per_entry();
-    const size_t num_slots_per_entry_rounded = utils::next_power_of_two(num_slots_per_entry);
-    const size_t max_empty_slots = batchpir_params_.get_first_dimension_size();
-    const size_t row_size = batchpir_params_.get_seal_parameters().poly_modulus_degree() / 2;
-    const size_t gap = row_size / max_empty_slots;
-
-    measure_size(responses, 1);
-
-    auto current_fill = gap * num_slots_per_entry_rounded;
-    size_t num_buckets_merged = (row_size / current_fill);
-
-    if (ceil(num_slots_per_entry * 1.0 / max_empty_slots) > 1 || num_buckets_merged <= 1 || client_list_.size() == 1)
-    {
-
-        size_t num_chunk_ctx = ceil((num_slots_per_entry * 1.0) / max_empty_slots);
-
-        for (int i = 0; i < client_list_.size(); i++)
+        vector<string> str_entries(num_buckets, "");
+        for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++)
         {
-            auto start_idx = (i * num_chunk_ctx);
-            PIRResponseList subvector(responses.begin() + start_idx, responses.begin() + start_idx + num_chunk_ctx);
-            std::vector<std::vector<unsigned char>> entries = client_list_[i].decode_responses(subvector);
-            entries_list.push_back(entries);
+            size_t start = slot_idx * size_of_coeff;
+            size_t end = std::min((slot_idx + 1) * size_of_coeff, entry_size);
+            vector<uint64_t> plain_entry(num_buckets);
+            Plaintext pt;
+            decryptor_->decrypt(response[slot_idx], pt);
+            batch_encoder_->decode(pt, plain_entry);
+            for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
+                str_entries[bucket_idx] += block(plain_entry[bucket_idx]).to_string().substr(blocksize-(end - start));
+            }
+        }
+        for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
+            if (cuckoo_map.count(bucket_idx)) {
+                entries_list[bucket_idx][hash_idx] = block(str_entries[bucket_idx]) ^ encryption_masks[cuckoo_map[bucket_idx]];
+            }
+        }
+        // Unmask
+        #ifdef DEBUG 
+        cout << fmt::format("query {}: Unmask {} with {} -> {}", hash_idx, str_entries[server->iB_of_interest], encryption_masks[cuckoo_map.at(server->iB_of_interest)].to_string(), entries_list[server->iB_of_interest][hash_idx].to_string()) << endl;
+        #endif
+    }
+
+    // Unmasking and Nonce matching
+    RawResponses raw_responses(num_buckets);
+    for (int batch_idx = 0; batch_idx < batch_size; batch_idx++) {
+        bool flag = false;
+        auto bucket_idx = inv_cuckoo_map[batch_idx];
+        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+            auto [prefix, data_item] = utils::split(entries_list[bucket_idx][hash_idx]);
+            if (prefix == nonces[bucket_idx]) {
+                if (flag) {
+                    throw std::runtime_error("Error: Nonce matched more than once");
+                } else {
+                    raw_responses[bucket_idx] = data_item;
+                    flag = true;
+                }
+            }
+        }
+        if (!flag) {
+            throw std::runtime_error(fmt::format("Error: Nonce not matched for {}", bucket_idx));
         }
     }
-    else
-    {
-        vector<vector<uint64_t>> entry_slot_lists;
-        for (int i = 0; i < client_list_.size(); i++)
-        {
-            entry_slot_lists.push_back(client_list_[i].get_entry_list());
-        }
-
-        entries_list = client_list_[0].decode_merged_responses(responses, cuckoo_table_.size(), entry_slot_lists);
-    }
-    return entries_list;
+    
+    return raw_responses;
 }
 
-std::pair<seal::GaloisKeys, seal::RelinKeys> BatchPIRClient::get_public_keys()
+std::pair<GaloisKeys, RelinKeys> BatchPIRClient::get_public_keys()
 {
-    std::pair<seal::GaloisKeys, seal::RelinKeys> keys;
-    keys = client_list_[0].get_public_keys();
-    return keys;
+    return std::make_pair(gal_keys_, relin_keys_);
 }

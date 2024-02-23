@@ -4,9 +4,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <fmt/core.h>
 #include <iostream>
 #include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
+#include "LowMC.h"
 #include "database_constants.h"
 #include "seal/seal.h"
 
@@ -14,8 +18,8 @@
 typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
 typedef  std::vector<seal::Ciphertext> PIRResponseList;
-typedef  std::vector<std::vector<unsigned char>>  RawDB;
-typedef  std::vector<std::vector<unsigned char>>  RawResponses;
+typedef  std::vector<rawdatablock>  RawDB;
+typedef  std::vector<rawdatablock>  RawResponses;
 typedef  std::vector<uint64_t> Row;
 typedef  std::vector<Row> PirDB;
 using namespace std;
@@ -99,7 +103,67 @@ namespace utils {
 
         return candidate_buckets;
     }
+
+    template< size_t size>
+    typename std::bitset<size> random_bitset( double p = 0.5) {
+        typename std::bitset<size> bits;
+        std::random_device rd;
+        std::mt19937 gen( rd());
+        std::bernoulli_distribution d( p);
+
+        for( int n = 0; n < size; ++n) {
+            bits[ n] = d( gen);
+        }
+
+        return bits;
+    }
     
+    template< size_t size1, size_t size2>
+    inline typename std::bitset<size1+size2> concatenate(std::bitset<size1> b1, std::bitset<size2> b2) {
+        return std::bitset<size1+size2>(b1.to_string() + b2.to_string());
+    }
+
+    
+    template< size_t psize=prefixsize, size_t osize=blocksize>
+    inline typename std::bitset<psize> get_prefix(std::bitset<osize> b) {
+        return std::bitset<psize>(b.to_string().substr(0, psize));
+    }
+    
+    inline auto split(block b) {
+        string str_repr = b.to_string();
+        return make_pair(prefixblock(str_repr.substr(0, prefixsize)), std::bitset<DatabaseConstants::OutputLength>(str_repr.substr(prefixsize)).to_ulong());
+    }
+
+    void timing_start(string prefix);
+
+    void timing_end(string prefix);
+
+    uint64_t choose(uint64_t n, uint64_t k);
+    std::vector<uint64_t> get_perfect_constant_weight_codeword(uint64_t __number, uint64_t encoding_size=DatabaseConstants::PIRANA_m, uint64_t hamming_weight=DatabaseConstants::PIRANA_k, bool __verbose=true);
+
+    inline void append_non_collide_output(std::string hash_out, size_t mod, std::vector<size_t>& candidates) {
+        for (int split = 0; split < hash_out.size() - 10; split++) {
+            size_t idx = std::stoull(hash_out.substr(0, hash_out.size() - split), nullptr, 2) % mod;
+            if (std::find(candidates.begin(), candidates.end(), idx) == candidates.end()) {
+                candidates.emplace_back(idx);
+                return;
+            }
+        }
+        throw std::runtime_error("Error: candidate failed. ");
+    }
+
+    bool cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
+    
+    inline auto get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts) {
+        std::vector<size_t> candidate_buckets, candidate_position;
+        for (auto& ciphertext: ciphertexts) {
+            auto bucket_hash = ciphertext.substr(0, DatabaseConstants::BucketHashLength);
+            auto pos_hash = ciphertext.substr(DatabaseConstants::BucketHashLength);
+            append_non_collide_output(bucket_hash, total_buckets, candidate_buckets);
+            append_non_collide_output(pos_hash, bucket_size, candidate_position);
+        }
+        return make_pair(candidate_buckets, candidate_position);
+    }
     
     inline void multiply_acum(uint64_t op1, uint64_t op2, __uint128_t& product_acum) {
         product_acum = product_acum + static_cast<__uint128_t>(op1) * static_cast<__uint128_t>(op2); 

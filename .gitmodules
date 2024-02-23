@@ -1,0 +1,3 @@
+[submodule "extern/tqdm"]
+	path = extern/tqdm
+	url = git@github.com:ArmandZampieri/tqdm.cpp.git

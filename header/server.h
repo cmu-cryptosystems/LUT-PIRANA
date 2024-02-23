@@ -33,8 +33,8 @@ public:
 
     PIRResponseList generate_response(uint32_t client_id, PIRQuery query);
 
-    bool check_decoded_entry( std::vector<unsigned char> entry, int index);
-    bool check_decoded_entries(std::vector<std::vector<unsigned char>> entries, vector<uint64_t> indices);
+    // bool check_decoded_entry( rawdatablock entry, int index);
+    // bool check_decoded_entries(std::vector<rawdatablock> entries, vector<uint64_t> indices);
 
     PIRResponseList merge_responses_chunks_buckets(vector<PIRResponseList>& responses, uint32_t client_id);
     PIRResponseList merge_responses_buckets_chunks(vector<PIRResponseList>& responses, uint32_t client_id);
@@ -76,7 +76,7 @@ private:
     PirDB convert_to_pir_db(int rawdb_index);
     void merge_pir_dbs();
 
-    std::vector<uint64_t> convert_to_list_of_coeff(std::vector<unsigned char> input_list);
+    std::vector<uint64_t> convert_to_list_of_coeff(rawdatablock input_list); 
     void rotate_db_cols();
     vector<seal::Ciphertext> rotate_copy_query(uint32_t client_id);
     void encode_db();

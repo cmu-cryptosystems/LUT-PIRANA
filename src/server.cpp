@@ -60,39 +60,21 @@ void Server::populate_raw_db()
     // Resize the rawdb_ vector to the correct size
     rawdb_.resize(rounded_db_entries);
 
-    // Define a function to generate a random entry
-    auto generate_random_entry = [entry_size]() -> std::vector<unsigned char>
-    {
-        std::vector<unsigned char> entry(entry_size);
-        std::generate(entry.begin(), entry.end(), []()
-                      {
-                          return rand() % 0xFF;
-                          // return 1;
-                      });
-        return entry;
-    };
-
-    // Define a function to generate a zero-filled entry
-    auto generate_one_entry = [entry_size]() -> std::vector<unsigned char>
-    {
-        return std::vector<unsigned char>(entry_size, 1);
-    };
-
     // Populate the rawdb_ vector with entries
     for (size_t i = 0; i < rounded_db_entries; ++i)
     {
         if (i < db_entries)
         {
-            rawdb_[i] = generate_random_entry();
+            rawdb_[i] = random_bitset<DatabaseConstants::OutputLength>();
         }
         else
         {
-            rawdb_[i] = generate_one_entry();
+            rawdb_[i] = rawdatablock();
         }
     }
 }
 
-///   data functions to be used with bathcpir server
+///   pad buckets to the same length with 0
 void Server::round_dbs()
 {
     for (int i = 0; i < rawdb_list_.size(); i++)
@@ -107,15 +89,9 @@ void Server::round_db(RawDB &db)
     auto rounded_db_entries = pir_params_.get_rounded_num_entries();
     auto entry_size = pir_params_.get_entry_size();
 
-    // Define a function to generate a zero-filled entry
-    auto generate_one_entry = [entry_size]() -> std::vector<unsigned char>
-    {
-        return std::vector<unsigned char>(entry_size, 1);
-    };
-
     for (int i = 0; i < (rounded_db_entries - db_entries); i++)
     {
-        db.push_back(generate_one_entry());
+        db.push_back(rawdatablock());
     }
 }
 
@@ -140,31 +116,16 @@ RawDB Server::populate_return_raw_db()
     // Resize the rawdb vector to the correct size
     RawDB rawdb(rounded_db_entries);
 
-    // Define a function to generate a random entry
-    auto generate_random_entry = [entry_size]() -> std::vector<unsigned char>
-    {
-        std::vector<unsigned char> entry(entry_size);
-        std::generate(entry.begin(), entry.end(), []()
-                      { return rand() % 0xFF; });
-        return entry;
-    };
-
-    // Define a function to generate a zero-filled entry
-    auto generate_one_entry = [entry_size]() -> std::vector<unsigned char>
-    {
-        return std::vector<unsigned char>(entry_size, 1);
-    };
-
     // Populate the rawdb vector with entries
     for (size_t i = 0; i < rounded_db_entries; ++i)
     {
         if (i < db_entries)
         {
-            rawdb[i] = generate_random_entry();
+            rawdb[i] = random_bitset<DatabaseConstants::OutputLength>();
         }
         else
         {
-            rawdb[i] = generate_one_entry();
+            rawdb[i] = rawdatablock();
         }
     }
 
@@ -567,12 +528,7 @@ void Server::print_rawdb()
     int idx = 0;
     for (const auto &row : rawdb_)
     {
-        std::cout << idx << " [";
-        for (auto it = row.begin(); it != row.end(); it++)
-        {
-            std::cout << static_cast<int>(*it) << " ";
-        }
-        std::cout << " ]";
+        std::cout << idx << " [" << row << " ]";
         idx++;
         std::cout << std::endl;
         std::cout << std::endl;
@@ -651,7 +607,7 @@ void Server::ntt_preprocess_db()
     std::cout << "BatchPIRServer: Database is NTT processed!" << std::endl;
 }
 
-std::vector<uint64_t> Server::convert_to_list_of_coeff(std::vector<unsigned char> input_list)
+std::vector<uint64_t> Server::convert_to_list_of_coeff(rawdatablock input_list)
 {
     auto size_of_input = input_list.size();
     const int size_of_coeff = plaint_bit_count_ - 1;
@@ -937,59 +893,59 @@ PIRResponseList Server::generate_response(uint32_t client_id, PIRQuery query)
     return response;
 }
 
-bool Server::check_decoded_entry(std::vector<unsigned char> entry, int index)
-{
-    if (entry.size() != rawdb_list_[1][index].size())
-    {
-        std::cout << "BatchPIRServer: Vectors have different sizes!" << std::endl;
-        return false;
-    }
+// bool Server::check_decoded_entry(std::vector<rawdatablock> entry, int index)
+// {
+//     if (entry.size() != rawdb_list_[1][index].size())
+//     {
+//         std::cout << "BatchPIRServer: Vectors have different sizes!" << std::endl;
+//         return false;
+//     }
 
-    bool result = std::equal(entry.begin(), entry.end(), rawdb_list_[1][index].begin());
+//     bool result = std::equal(entry.begin(), entry.end(), rawdb_list_[1][index].begin());
 
-    if (!result)
-    {
-        std::cout << "BatchPIRServer: Vectors are not equal:" << std::endl;
-        std::cout << "entry:      ";
-        for (auto it = entry.begin(); it != entry.end(); it++)
-        {
-            std::cout << static_cast<int>(*it) << " ";
-        }
-        std::cout << std::endl;
-        std::cout << std::endl;
+//     if (!result)
+//     {
+//         std::cout << "BatchPIRServer: Vectors are not equal:" << std::endl;
+//         std::cout << "entry:      ";
+//         for (auto it = entry.begin(); it != entry.end(); it++)
+//         {
+//             std::cout << *it << " ";
+//         }
+//         std::cout << std::endl;
+//         std::cout << std::endl;
 
-        std::cout << "rawdb_list_[1][ " << index << "]: ";
-        for (auto it = rawdb_list_[1][index].begin(); it != rawdb_list_[1][index].end(); it++)
-        {
-            std::cout << static_cast<int>(*it) << " ";
-        }
-        std::cout << std::endl;
-        std::cout << std::endl;
-    }
+//         std::cout << "rawdb_list_[1][ " << index << "]: ";
+//         for (auto it = rawdb_list_[1][index].begin(); it != rawdb_list_[1][index].end(); it++)
+//         {
+//             std::cout << static_cast<int>(*it) << " ";
+//         }
+//         std::cout << std::endl;
+//         std::cout << std::endl;
+//     }
 
-    return result;
-}
+//     return result;
+// }
 
-bool Server::check_decoded_entries(std::vector<std::vector<unsigned char>> entries, vector<uint64_t> indices)
-{
-    for (int i = 0; i < num_databases_; i++)
-    {
+// bool Server::check_decoded_entries(std::vector<rawdatablock> entries, vector<uint64_t> indices)
+// {
+//     for (int i = 0; i < num_databases_; i++)
+//     {
 
-        // dont check anything if its a default inddex, only used for cuckoo hashing
-        if (indices[i] != pir_params_.get_default_value())
-        {
-            if (entries[i].size() != rawdb_list_[i][indices[i]].size())
-            {
-                throw std::runtime_error("Error: Vectors have different sizes!");
-            }
+//         // dont check anything if its a default inddex, only used for cuckoo hashing
+//         if (indices[i] != pir_params_.get_default_value())
+//         {
+//             if (entries[i].size() != rawdb_list_[i][indices[i]].size())
+//             {
+//                 throw std::runtime_error("Error: Vectors have different sizes!");
+//             }
 
-            bool result = std::equal(entries[i].begin(), entries[i].end(), rawdb_list_[i][indices[i]].begin());
-            if (!result)
-            {
-                throw std::runtime_error("Error: Entries do not match!");
-            }
-        }
-    }
-    cout << endl;
-    return true;
-}
+//             bool result = std::equal(entries[i].begin(), entries[i].end(), rawdb_list_[i][indices[i]].begin());
+//             if (!result)
+//             {
+//                 throw std::runtime_error("Error: Entries do not match!");
+//             }
+//         }
+//     }
+//     cout << endl;
+//     return true;
+// }

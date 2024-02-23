@@ -64,7 +64,7 @@ vector<uint64_t> Client::get_entry_list()
     return entry_slot_list_;
 }
 
-std::vector<unsigned char> Client::decode_response(PIRResponseList response)
+rawdatablock Client::decode_response(PIRResponseList response)
 {
 
     check_noise_budget(response[0]);
@@ -155,7 +155,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
     }
 
     remaining_entries = cuckoo_size;
-    vector<std::vector<std::vector<unsigned char>>> raw_entries_list;
+    vector<std::vector<rawdatablock>> raw_entries_list;
 
     // loop over the pir_entries list in increments of gap_
     for (int i = 0; i < pir_entries.size(); i += (gap_ * 2))
@@ -163,7 +163,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
 
         // pick number of entries left to parse
         int num_queries = min(remaining_entries, gap_ * 2);
-        std::vector<std::vector<unsigned char>> raw_entries(num_queries);
+        std::vector<rawdatablock> raw_entries(num_queries);
 
         for (int j = 0; j < num_queries; j++)
         {
@@ -178,7 +178,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
     return raw_entries_list;
 }
 
-std::vector<std::vector<unsigned char>> Client::single_pir_decode_responses(PIRResponseList response){
+std::vector<rawdatablock> Client::single_pir_decode_responses(PIRResponseList response){
     auto noise_budget = decryptor_->invariant_noise_budget(response[0]);
     if (noise_budget == 0) {
         throw std::runtime_error("Error: noise budget is zero");
@@ -211,7 +211,7 @@ std::vector<std::vector<unsigned char>> Client::single_pir_decode_responses(PIRR
         }
     }
     
-    std::vector<std::vector<unsigned char>> raw_entries(num_queries);
+    std::vector<rawdatablock> raw_entries(num_queries);
     for(int j = 0; j < num_queries; j++){
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
     }
@@ -264,7 +264,7 @@ RawResponses Client::decode_responses(PIRResponseList response)
         remaining_slots_entry -= max_empty_slots;
     }
 
-    std::vector<std::vector<unsigned char>> raw_entries(num_queries);
+    std::vector<rawdatablock> raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -313,7 +313,7 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
         }
     }
 
-    std::vector<std::vector<unsigned char>> raw_entries(num_queries);
+    std::vector<rawdatablock> raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -322,12 +322,12 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
     return raw_entries;
 }
 
-std::vector<unsigned char> Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
+rawdatablock Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
 {
     auto size_of_input = input_list.size();
     const int size_of_coeff = plaint_bit_count_ - 1;
     auto entry_size = pir_params_.get_entry_size();
-    std::vector<unsigned char> res(entry_size);
+    rawdatablock res(entry_size);
     std::string bit_str;
 
     for (int i = 0; i < size_of_input; i++)
