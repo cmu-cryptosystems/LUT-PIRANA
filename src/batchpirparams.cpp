@@ -7,7 +7,7 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
       cuckoo_factor_(DatabaseConstants::CuckooFactor),
       cuckoo_factor_bucket_(DatabaseConstants::CuckooFactorBucket),
       num_entries_(num_entries),
-      entry_size_(blocksize),
+      entry_size_(datablock_size),
       max_attempts_(DatabaseConstants::MaxAttempts),
       type_(DatabaseConstants::type){
 

@@ -15,7 +15,7 @@ class BatchPIRClient {
 public:
     BatchPIRClient(const BatchPirParams& params);
     vector<vector<PIRQuery>> create_queries(vector<vector<string>> batch);
-    vector<RawDB> decode_responses(vector<PIRResponseList> responses, vector<prefixblock> nonces);
+    vector<EncodedDB> decode_responses(vector<PIRResponseList> responses);
 
     std::pair<seal::GaloisKeys, seal::RelinKeys> get_public_keys();
     size_t get_serialized_commm_size();

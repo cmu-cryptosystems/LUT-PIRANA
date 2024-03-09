@@ -22,14 +22,13 @@ public:
     void set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys> keys);
     void get_client_keys();
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
-    bool check_decoded_entries(vector<RawDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
+    bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
     void prepare_pir_server();
    
     std::vector<LowMC> ciphers;
-    std::vector<prefixblock> nonces;
-    std::vector<rawdatablock> masks;
+    std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> index_masks, entry_masks;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_buckets_array;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;
 
@@ -38,8 +37,8 @@ private:
 #endif
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
-    vector<vector<block>> buckets_;
-    vector<vector<Plaintext>> encoded_columns; // column, slot
+    array<vector<EncodedDB>, DatabaseConstants::NumHashFunctions> buckets_;
+    array<vector<vector<Plaintext>>, DatabaseConstants::NumHashFunctions> encoded_columns; // column, slot
     bool lowmc_encoded;
     bool is_client_keys_set_;
     std::vector<std::unordered_map<uint64_t, uint64_t>> position_to_key;
@@ -57,7 +56,7 @@ private:
     void lowmc_prepare();
     void lowmc_encode();
     void lowmc_encrypt();
-    void initialize_nonces_masks();
+    void initialize_masks();
     void populate_raw_db();
     // void print_stats() const; 
 
@@ -75,7 +74,7 @@ private:
     PIRQuery query_; 
     size_t num_databases_;
     
-    vector<Server> server_list_;
+    array<vector<Server>, DatabaseConstants::NumHashFunctions> server_list_;
 
 };
 

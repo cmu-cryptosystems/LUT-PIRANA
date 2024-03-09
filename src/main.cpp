@@ -38,7 +38,7 @@ int batchpir_main(int argc, char* argv[])
     const int client_id = 0;
     //  batch size, number of entries, size of entry
     std::vector<std::array<size_t, 3>> input_choices;
-    input_choices.push_back({256, 65536, 8});
+    input_choices.push_back({256, 65536, 4});
     // input_choices.push_back({256, 1048576, 16});
     // input_choices.push_back({32, 1048576, 32});
     // input_choices.push_back({64, 1048576, 32});
@@ -70,13 +70,14 @@ int batchpir_main(int argc, char* argv[])
     batch_server.initialize();
     #ifndef DEBUG 
     std::cout << "BatchPIRServer: Preparing PIR servers......" << std::endl;
+    timing_start("Plaintext encoding");
     batch_server.prepare_pir_server();
+    timing_end("Plaintext encoding");
     std::cout << "BatchPIRServer: PIR servers preparation complete." << std::endl;
     #endif
     auto end = chrono::high_resolution_clock::now();
     auto duration_init = chrono::duration_cast<chrono::milliseconds>(end - start);
     cout << "Main: Initialization complete for example " << (iteration + 1) << "." << endl;
-    cout << "elapsed time: " << duration_init.count() << " milliseconds" << endl;
     init_times.push_back(duration_init);
 
     BatchPIRClient batch_client(params);
@@ -198,7 +199,7 @@ int batchpir_main(int argc, char* argv[])
     #endif
 
     cout << "Main: Checking decoded entries for example " << (iteration + 1) << "..." << endl;
-    auto decode_responses = batch_client.decode_responses(responses, batch_server.nonces);
+    auto decode_responses = batch_client.decode_responses(responses);
 
     communication_list.push_back(batch_client.get_serialized_commm_size());
 

@@ -167,6 +167,9 @@ void LowMC::instantiate_LowMC () {
     // Create LinMatrices and invLinMatrices
     LinMatrices.clear();
     invLinMatrices.clear();
+    LinMatrices.resize(rounds);
+    invLinMatrices.resize(rounds);
+    #pragma omp parallel for if(DatabaseConstants::parallel)
     for (unsigned r = 0; r < rounds; ++r) {
         // Create matrix
         std::vector<block> mat;
@@ -178,8 +181,8 @@ void LowMC::instantiate_LowMC () {
             }
         // Repeat if matrix is not invertible
         } while ( rank_of_Matrix(mat) != blocksize );
-        LinMatrices.push_back(mat);
-        invLinMatrices.push_back(invert_Matrix (LinMatrices.back()));
+        LinMatrices[r] = mat;
+        // invLinMatrices[r] = invert_Matrix (mat);
     }
 
     // Create roundconstants
@@ -190,6 +193,8 @@ void LowMC::instantiate_LowMC () {
 
     // Create KeyMatrices
     KeyMatrices.clear();
+    KeyMatrices.resize(rounds+1);
+    #pragma omp parallel for if(DatabaseConstants::parallel)
     for (unsigned r = 0; r <= rounds; ++r) {
         // Create matrix
         std::vector<keyblock> mat;
@@ -201,7 +206,7 @@ void LowMC::instantiate_LowMC () {
             }
         // Repeat if matrix is not of maximal rank
         } while ( rank_of_Matrix_Key(mat) < std::min(blocksize, keysize) );
-        KeyMatrices.push_back(mat);
+        KeyMatrices[r] = mat;
     }
 
     prefix = utils::random_bitset<blocksize-DatabaseConstants::OutputLength>();

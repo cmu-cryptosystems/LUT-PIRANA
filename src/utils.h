@@ -19,8 +19,8 @@ typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
 typedef  std::vector<seal::Ciphertext> PIRResponseList;
 typedef  std::vector<rawdatablock>  RawDB;
-typedef  std::vector<block>  EncodedDB;
-typedef  std::vector<block>  RawResponses;
+typedef  std::vector<std::bitset<datablock_size>>  EncodedDB;
+typedef  std::vector<std::bitset<datablock_size>>  RawResponses;
 typedef  std::vector<uint64_t> Row;
 typedef  std::vector<Row> PirDB;
 using namespace std;
@@ -130,9 +130,10 @@ namespace utils {
         return std::bitset<psize>(b.to_string().substr(0, psize));
     }
     
-    inline auto split(block b) {
+    template< size_t ssize=prefixsize, size_t bsize = blocksize>
+    inline auto split(bitset<bsize> b) {
         string str_repr = b.to_string();
-        return make_pair(prefixblock(str_repr.substr(0, prefixsize)), std::bitset<DatabaseConstants::OutputLength>(str_repr.substr(prefixsize)).to_ulong());
+        return make_pair(std::bitset<ssize>(str_repr.substr(0, ssize)), std::bitset<bsize-ssize>(str_repr.substr(ssize)));
     }
 
     void timing_start(string prefix);

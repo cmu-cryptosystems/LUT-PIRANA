@@ -10,13 +10,15 @@ const unsigned blocksize = 64;   // Block size in bits
 const unsigned keysize = 128; // Key size in bits
 const unsigned rounds = 184; // Number of rounds
 
-const unsigned prefixsize = blocksize-DatabaseConstants::OutputLength; // Number of rounds
+const unsigned prefixsize = blocksize-DatabaseConstants::OutputLength; 
+const unsigned datablock_size = 2*DatabaseConstants::OutputLength;
 
 const unsigned identitysize = blocksize - 3*numofboxes;
                   // Size of the identity part in the Sbox layer
 
 typedef std::bitset<blocksize> block; // Store messages and states
 typedef std::bitset<keysize> keyblock;
+typedef std::bitset<datablock_size>  datablock;
 typedef std::bitset<prefixsize> prefixblock;
 typedef std::bitset<DatabaseConstants::OutputLength> rawdatablock;
 

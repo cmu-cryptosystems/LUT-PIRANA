@@ -64,26 +64,26 @@ vector<uint64_t> Client::get_entry_list()
     return entry_slot_list_;
 }
 
-block Client::decode_response(PIRResponseList response)
-{
+// datablock Client::decode_response(PIRResponseList response)
+// {
 
-    check_noise_budget(response[0]);
+//     check_noise_budget(response[0]);
 
-    seal::Plaintext pt;
-    std::vector<uint64_t> decoded_response;
-    std::vector<uint64_t> entry(num_columns_per_entry_, 0ULL);
+//     seal::Plaintext pt;
+//     std::vector<uint64_t> decoded_response;
+//     std::vector<uint64_t> entry(num_columns_per_entry_, 0ULL);
 
-    for (int i = 0; i < response.size(); i++)
-    {
-        decryptor_->decrypt(response[i], pt);
-        batch_encoder_->decode(pt, decoded_response);
+//     for (int i = 0; i < response.size(); i++)
+//     {
+//         decryptor_->decrypt(response[i], pt);
+//         batch_encoder_->decode(pt, decoded_response);
 
-        entry[i] = decoded_response[(entry_slot_ * gap_)];
-    }
+//         entry[i] = decoded_response[(entry_slot_ * gap_)];
+//     }
 
-    // move the entry slot back to 0th slot
-    return convert_to_rawdb_entry(entry);
-}
+//     // move the entry slot back to 0th slot
+//     return convert_to_rawdb_entry(entry);
+// }
 
 
 void Client::check_noise_budget(const seal::Ciphertext& response) {
@@ -155,7 +155,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
     }
 
     remaining_entries = cuckoo_size;
-    vector<std::vector<block>> raw_entries_list;
+    vector<EncodedDB> raw_entries_list;
 
     // loop over the pir_entries list in increments of gap_
     for (int i = 0; i < pir_entries.size(); i += (gap_ * 2))
@@ -163,7 +163,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
 
         // pick number of entries left to parse
         int num_queries = min(remaining_entries, gap_ * 2);
-        std::vector<block> raw_entries(num_queries);
+        EncodedDB raw_entries(num_queries);
 
         for (int j = 0; j < num_queries; j++)
         {
@@ -178,46 +178,46 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
     return raw_entries_list;
 }
 
-std::vector<block> Client::single_pir_decode_responses(PIRResponseList response){
-    auto noise_budget = decryptor_->invariant_noise_budget(response[0]);
-    if (noise_budget == 0) {
-        throw std::runtime_error("Error: noise budget is zero");
-    }
+// std::vector<block> Client::single_pir_decode_responses(PIRResponseList response){
+//     auto noise_budget = decryptor_->invariant_noise_budget(response[0]);
+//     if (noise_budget == 0) {
+//         throw std::runtime_error("Error: noise budget is zero");
+//     }
 
-    // cout << "Client: noise budget left in the response " << noise_budget << endl;
+//     // cout << "Client: noise budget left in the response " << noise_budget << endl;
 
-    auto num_queries = num_databases_;
+//     auto num_queries = num_databases_;
 
     
-    seal::Plaintext pt;
-    std::vector<uint64_t> decoded_response;
-    std::vector<std::vector<uint64_t>> pir_entries(num_queries, std::vector<uint64_t>(num_columns_per_entry_, 0ULL));
-    uint64_t idx = 0;
+//     seal::Plaintext pt;
+//     std::vector<uint64_t> decoded_response;
+//     std::vector<std::vector<uint64_t>> pir_entries(num_queries, std::vector<uint64_t>(num_columns_per_entry_, 0ULL));
+//     uint64_t idx = 0;
 
-    for(int i = 0; i < response.size(); i++){
-        decoded_response.clear();
-        decryptor_->decrypt(response[i], pt);
-        batch_encoder_->decode(pt, decoded_response);
+//     for(int i = 0; i < response.size(); i++){
+//         decoded_response.clear();
+//         decryptor_->decrypt(response[i], pt);
+//         batch_encoder_->decode(pt, decoded_response);
 
-        for(int j = 0; j < num_queries; j++){
-            auto tmp = j;
-            if ( tmp >= gap_){
-                idx = row_size_;
-                tmp = tmp - gap_;
-            }else{
-                idx = 0;
-            }
-            pir_entries[j][i] = decoded_response[idx + (entry_slot_list_[j] * gap_) + tmp];
-        }
-    }
+//         for(int j = 0; j < num_queries; j++){
+//             auto tmp = j;
+//             if ( tmp >= gap_){
+//                 idx = row_size_;
+//                 tmp = tmp - gap_;
+//             }else{
+//                 idx = 0;
+//             }
+//             pir_entries[j][i] = decoded_response[idx + (entry_slot_list_[j] * gap_) + tmp];
+//         }
+//     }
     
-    std::vector<block> raw_entries(num_queries);
-    for(int j = 0; j < num_queries; j++){
-        raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
-    }
-    // move the entry slot back to 0th slot
-    return raw_entries;
-}
+//     EncodedDB raw_entries(num_queries);
+//     for(int j = 0; j < num_queries; j++){
+//         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
+//     }
+//     // move the entry slot back to 0th slot
+//     return raw_entries;
+// }
 
 RawResponses Client::decode_responses(PIRResponseList response)
 {
@@ -264,7 +264,7 @@ RawResponses Client::decode_responses(PIRResponseList response)
         remaining_slots_entry -= max_empty_slots;
     }
 
-    std::vector<block> raw_entries(num_queries);
+    EncodedDB raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -313,7 +313,7 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
         }
     }
 
-    std::vector<block> raw_entries(num_queries);
+    EncodedDB raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -322,7 +322,7 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
     return raw_entries;
 }
 
-block Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
+datablock Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
 {
     auto size_of_input = input_list.size();
     const int size_of_coeff = plaint_bit_count_ - 1;
@@ -331,11 +331,11 @@ block Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
 
     for (unsigned out_idx = 0; out_idx < cols; out_idx++) {
         size_t start = out_idx * size_of_coeff;
-        size_t end = std::min((out_idx + 1) * size_of_coeff, (unsigned)blocksize);
-        bit_str += block(input_list[out_idx]).to_string().substr(blocksize-(end - start));
+        size_t end = std::min((out_idx + 1) * size_of_coeff, (unsigned)datablock_size);
+        bit_str += datablock(input_list[out_idx]).to_string().substr(datablock_size-(end - start));
     }
 
-    return block(bit_str);
+    return datablock(bit_str);
 }
 
 PIRQuery Client::gen_query(vector<uint64_t> indices)

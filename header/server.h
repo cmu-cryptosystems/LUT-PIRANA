@@ -74,7 +74,7 @@ private:
     PirDB convert_to_pir_db(int rawdb_index);
     void merge_pir_dbs();
 
-    std::vector<uint64_t> convert_to_list_of_coeff(block input_list); 
+    std::vector<uint64_t> convert_to_list_of_coeff(datablock input_list); 
     void rotate_db_cols();
     vector<seal::Ciphertext> rotate_copy_query(uint32_t client_id);
     void encode_db();

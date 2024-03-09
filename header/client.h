@@ -49,7 +49,7 @@ private:
 
     // Private member functions
     std::vector<size_t> compute_indices(uint64_t desired_index);
-    block convert_to_rawdb_entry(std::vector<uint64_t>  input_list);
+    datablock convert_to_rawdb_entry(std::vector<uint64_t>  input_list);
     PIRQuery merge_pir_queries(vector<PirDB> plain_queries);
     void check_noise_budget(const seal::Ciphertext& response); 
 };
