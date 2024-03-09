@@ -36,7 +36,7 @@ public:
     std::array<std::map<size_t, block>, 1 << DatabaseConstants::OutputLength> encryption_array;
 
 #ifndef DEBUG 
-// private:
+private:
 #endif
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
@@ -78,7 +78,6 @@ public:
     size_t num_databases_;
     
     vector<Server> server_list_;
-    seal::Decryptor *decryptor_;
 
 };
 

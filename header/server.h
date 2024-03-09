@@ -1,12 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <seal/decryptor.h>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <chrono>
 #include "pirparams.h"
+#ifdef DEBUG
+#include <seal/decryptor.h>
+#endif
 
 using namespace seal;
 using namespace utils;
@@ -39,8 +37,6 @@ public:
 
     PIRResponseList merge_responses_chunks_buckets(vector<PIRResponseList>& responses, uint32_t client_id);
     PIRResponseList merge_responses_buckets_chunks(vector<PIRResponseList>& responses, uint32_t client_id);
-
-    seal::Decryptor *decryptor_;
 
 private:
     // Private member variables

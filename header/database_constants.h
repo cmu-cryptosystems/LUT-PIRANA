@@ -13,7 +13,7 @@ enum BatchPirType {
 
 namespace DatabaseConstants {
 
-    constexpr BatchPirType type = PIRANA;
+    constexpr BatchPirType type = UIUC;
     constexpr int PolyDegree = 8192;
     constexpr int PlaintextModBitss = 22;
     constexpr int MaxAttempts = 500;

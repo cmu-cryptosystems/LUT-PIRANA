@@ -137,7 +137,6 @@ int batchpir_main(int argc, char* argv[])
         throw std::runtime_error("Error: Mask incorrect");
     }
 
-    batch_server.server_list_[0].decryptor_ = batch_client.client_list_[0].decryptor_;
     #endif
 
     batch_server.set_client_keys(client_id, batch_client.get_public_keys());

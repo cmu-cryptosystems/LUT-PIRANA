@@ -46,7 +46,6 @@ size_t BatchPirParams::get_num_entries() {
 }
 
 size_t BatchPirParams::get_num_buckets() {
-    // return seal_params_.poly_modulus_degree() / get_num_slots_per_entry();
     return ceil(cuckoo_factor_ * batch_size_);
 }
 

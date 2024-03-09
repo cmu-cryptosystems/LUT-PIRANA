@@ -1,10 +1,6 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include <string>
-#include <iostream>
-#include <vector>
-#include <algorithm>
 #include "pirparams.h"
 
 class Client {

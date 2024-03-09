@@ -46,7 +46,6 @@ private:
     seal::RelinKeys relin_keys_;
 
     #ifdef DEBUG 
-    // debug
     seal::Evaluator *evaluator_;
     BatchPIRServer *server;
     #endif

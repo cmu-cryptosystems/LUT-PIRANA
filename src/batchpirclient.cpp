@@ -1,5 +1,4 @@
 #include "batchpirclient.h"
-#include <cassert>
 #include <cstdint>
 #include <seal/ciphertext.h>
 #include <seal/evaluator.h>
@@ -78,7 +77,6 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
                 }
                 previous_idx += offset;
                 auto query = client_list_[i][hash_idx].gen_query(sub_buckets);
-                measure_size(query, 2);
                 qs.push_back(query);
             }
             queries[hash_idx] = qs;
@@ -286,11 +284,6 @@ RawDB BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector
                     entries_list[bucket_idx][hash_idx] = all_entries[bucket_idx] ^ encryption_masks[cuckoo_map[bucket_idx]];
                 }
             }
-            // Unmask
-            #ifdef DEBUG 
-            cout << fmt::format("query {}: Unmask {} with {} -> {}", hash_idx, all_entries[server->iB_of_interest].to_string(), encryption_masks[cuckoo_map.at(server->iB_of_interest)].to_string(), entries_list[server->iB_of_interest][hash_idx].to_string()) << endl;
-            #endif
-            
         }
     }
 
@@ -299,7 +292,6 @@ RawDB BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector
     for (int batch_idx = 0; batch_idx < batch_size; batch_idx++) {
         bool flag = false;
         auto bucket_idx = inv_cuckoo_map[batch_idx];
-        assert (cuckoo_map.count(bucket_idx));
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             auto [prefix, data_item] = utils::split(entries_list[bucket_idx][hash_idx]);
             if (prefix == nonces[bucket_idx]) {

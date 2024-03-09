@@ -151,7 +151,6 @@ void BatchPIRServer::lowmc_encrypt() {
     for(size_t b = 0; b < total_buckets; b++) {
         for (auto const &[pos, idx] : position_to_key[b]) {
             block extended_message = concatenate(nonces[b], (rawdb_[idx] ^ masks[b]));
-            assert (utils::split(extended_message).first == nonces[b]);
             buckets_[b][pos] = extended_message ^ encryption_array[idx][b];
         }
         for (auto pos = 0; pos < bucket_size; pos ++) {
@@ -259,7 +258,6 @@ void BatchPIRServer::prepare_pir_server()
             PirParams params(bucket_size, offset, batchpir_params_->get_seal_parameters(), dim_size);
             params.print_values();
             Server server(params, sub_buckets);
-            server.decryptor_ = decryptor_;
 
             server_list_.push_back(server);
         }
