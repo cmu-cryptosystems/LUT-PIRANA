@@ -101,11 +101,6 @@ int batchpir_main(int argc, char* argv[])
     query_gen_times.push_back(duration_querygen);
     cout << "Main: Query generation complete for example " << (iteration + 1) << "." << endl;
 
-    vector<block> enc_masks(choice[0]);
-    for (int i = 0; i < choice[0]; i++) {
-        enc_masks[i] = batch_server.H.encrypt(utils::concatenate(prefixblock(batch_client.inv_cuckoo_map[i]), plain_queries[i]));
-    }
-
     #ifdef DEBUG 
     batch_server.i_of_interest = 2;
     batch_server.iB_of_interest = batch_client.inv_cuckoo_map[batch_server.i_of_interest];
@@ -203,7 +198,7 @@ int batchpir_main(int argc, char* argv[])
     #endif
 
     cout << "Main: Checking decoded entries for example " << (iteration + 1) << "..." << endl;
-    auto decode_responses = batch_client.decode_responses(responses, batch_server.nonces, enc_masks);
+    auto decode_responses = batch_client.decode_responses(responses, batch_server.nonces);
 
     communication_list.push_back(batch_client.get_serialized_commm_size());
 

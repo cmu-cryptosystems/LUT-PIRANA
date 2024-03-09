@@ -39,12 +39,11 @@ void BatchPIRServer::initialize() {
     for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
         ciphers.emplace_back(LowMC(random_bitset<keysize>()));
     }
-    H.set_key(random_bitset<keysize>());
     initialize_nonces_masks();
     timing_end("Initialization");
 
     timing_start("Hash");
-    lowmc_prepare(ciphers, H);
+    lowmc_prepare();
     timing_end("Hash");
 
     timing_start("Encoding");
@@ -93,7 +92,7 @@ inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket
     std::tie(candidate_buckets, candidate_position) = utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts);
 }
 
-void BatchPIRServer::lowmc_prepare(std::vector<LowMC>& ciphers, LowMC& H) {
+void BatchPIRServer::lowmc_prepare() {
     auto total_buckets = batchpir_params_->get_num_buckets();
     auto num_candidates = batchpir_params_->get_num_hash_funcs();
     assert(num_candidates == ciphers.size());
@@ -106,16 +105,6 @@ void BatchPIRServer::lowmc_prepare(std::vector<LowMC>& ciphers, LowMC& H) {
         get_candidate_lowmc(i, total_buckets, bucket_size, candidate_buckets_array[i], candidate_positions_array[i], ciphers);
     }
     timing_end("candidate");
-    
-    timing_start("enc_mask");
-    #pragma omp parallel for if(DatabaseConstants::parallel)
-    for (uint64_t i = 0; i < db_entries; i++) {
-        for (uint64_t j = 0; j < 3; j++) {
-            size_t bucket = candidate_buckets_array[i][j];
-            encryption_array[i][bucket] = H.encrypt(concatenate(prefixblock(bucket), rawdatablock(i)));
-        }
-    }
-    timing_end("enc_mask");
 
 }
 
@@ -151,11 +140,11 @@ void BatchPIRServer::lowmc_encrypt() {
     for(size_t b = 0; b < total_buckets; b++) {
         for (auto const &[pos, idx] : position_to_key[b]) {
             block extended_message = concatenate(nonces[b], (rawdb_[idx] ^ masks[b]));
-            buckets_[b][pos] = extended_message ^ encryption_array[idx][b];
+            buckets_[b][pos] = extended_message;
         }
         for (auto pos = 0; pos < bucket_size; pos ++) {
             if (!position_to_key[b].count(pos)) {
-                buckets_[b][pos] = 0;
+                buckets_[b][pos] = concatenate(nonces[b], rawdatablock(0));
             }
         }
     }
@@ -363,12 +352,20 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     return response;
 }
 
-bool BatchPIRServer::check_decoded_entries(RawDB entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map)
+bool BatchPIRServer::check_decoded_entries(vector<RawDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map)
 {
+    size_t w = batchpir_params_->get_num_hash_funcs();
     for (auto const &[bucket, original_index] : cuckoo_map) {
-        if ((entries_list[bucket] ^ masks[bucket]) != rawdb_[queries[original_index].to_ullong()]) {
-            throw std::runtime_error(fmt::format("Error: Decoded entry does not match the original entry at {}->{}: {} != {}", bucket, original_index, entries_list[bucket].to_string(), rawdb_[original_index].to_string()));
+        bool flag = false;
+        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+            auto data = entries_list[bucket][hash_idx] ^ masks[bucket];
+            assert (entries_list[bucket][hash_idx] == buckets_[bucket][candidate_positions_array[original_index][hash_idx]].to_ullong());
+            if (data != rawdb_[queries[original_index].to_ullong()]) {
+                flag = true;
+                // throw std::runtime_error(fmt::format("Error: Decoded entry does not match the original entry at {}->{}: {} != {}", bucket, original_index, entries_list[bucket].to_string(), rawdb_[original_index].to_string()));
+            }
         }
+        assert (flag);
     }
 
     return true;

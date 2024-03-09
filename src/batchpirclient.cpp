@@ -198,9 +198,8 @@ void BatchPIRClient::prepare_pir_clients()
 }
 
 // return 1..w, 1..B
-RawDB BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector<prefixblock> nonces, vector<block> encryption_masks)
+vector<RawDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector<prefixblock> nonces)
 {
-    cout << serialized_comm_size_ << endl;
     serialized_comm_size_ += nonces.size() * sizeof(prefixblock);
     auto plaint_bit_count_ = batchpir_params_.get_seal_parameters().plain_modulus().bit_count();
     size_t w = batchpir_params_.get_num_hash_funcs();
@@ -240,7 +239,7 @@ RawDB BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector
             }
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                 if (cuckoo_map.count(bucket_idx)) {
-                    entries_list[bucket_idx][hash_idx] = block(str_entries[bucket_idx]) ^ encryption_masks[cuckoo_map[bucket_idx]];
+                    entries_list[bucket_idx][hash_idx] = block(str_entries[bucket_idx]);
                 }
             }
             // Unmask
@@ -281,30 +280,20 @@ RawDB BatchPIRClient::decode_responses(vector<PIRResponseList> responses, vector
             assert (all_entries.size() == num_buckets);
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                 if (cuckoo_map.count(bucket_idx)) {
-                    entries_list[bucket_idx][hash_idx] = all_entries[bucket_idx] ^ encryption_masks[cuckoo_map[bucket_idx]];
+                    entries_list[bucket_idx][hash_idx] = all_entries[bucket_idx];
                 }
             }
         }
     }
 
     // Nonce matching
-    RawDB raw_responses(num_buckets);
+    vector<RawDB> raw_responses(num_buckets, RawDB(w));
     for (int batch_idx = 0; batch_idx < batch_size; batch_idx++) {
-        bool flag = false;
         auto bucket_idx = inv_cuckoo_map[batch_idx];
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             auto [prefix, data_item] = utils::split(entries_list[bucket_idx][hash_idx]);
-            if (prefix == nonces[bucket_idx]) {
-                if (flag) {
-                    throw std::runtime_error("Error: Nonce matched more than once");
-                } else {
-                    raw_responses[bucket_idx] = data_item;
-                    flag = true;
-                }
-            }
-        }
-        if (!flag) {
-            throw std::runtime_error(fmt::format("Error: Nonce not matched for {}", bucket_idx));
+            assert (prefix == nonces[bucket_idx]);
+            raw_responses[bucket_idx][hash_idx] = data_item;
         }
     }
     

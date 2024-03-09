@@ -22,18 +22,16 @@ public:
     void set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys> keys);
     void get_client_keys();
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
-    bool check_decoded_entries(RawDB entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
+    bool check_decoded_entries(vector<RawDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
     void prepare_pir_server();
    
     std::vector<LowMC> ciphers;
-    LowMC H;
     std::vector<prefixblock> nonces;
     std::vector<rawdatablock> masks;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_buckets_array;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;
-    std::array<std::map<size_t, block>, 1 << DatabaseConstants::OutputLength> encryption_array;
 
 #ifndef DEBUG 
 private:
@@ -56,7 +54,7 @@ private:
     std::array<vector<uint64_t>, DatabaseConstants::NumHashFunctions> plain_col_of_interest;
     #endif
 
-    void lowmc_prepare(std::vector<LowMC>& ciphers, LowMC& H);
+    void lowmc_prepare();
     void lowmc_encode();
     void lowmc_encrypt();
     void initialize_nonces_masks();
