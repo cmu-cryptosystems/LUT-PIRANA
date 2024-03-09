@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <seal/decryptor.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -14,7 +15,7 @@ class Server {
 public:
     // Constructor and destructor
     Server(PirParams &pir_params);
-    Server(PirParams &pir_params, vector<RawDB> sub_buckets);
+    Server(PirParams &pir_params, vector<EncodedDB> sub_buckets);
 
     // Creating raw database only used when server is initialized independently
     void populate_raw_db();
@@ -33,12 +34,13 @@ public:
 
     PIRResponseList generate_response(uint32_t client_id, PIRQuery query);
 
-    // bool check_decoded_entry( rawdatablock entry, int index);
-    // bool check_decoded_entries(std::vector<rawdatablock> entries, vector<uint64_t> indices);
+    bool check_decoded_entry( block entry, int index);
+    bool check_decoded_entries(std::vector<block> entries, vector<uint64_t> indices);
 
     PIRResponseList merge_responses_chunks_buckets(vector<PIRResponseList>& responses, uint32_t client_id);
     PIRResponseList merge_responses_buckets_chunks(vector<PIRResponseList>& responses, uint32_t client_id);
 
+    seal::Decryptor *decryptor_;
 
 private:
     // Private member variables
@@ -62,21 +64,21 @@ private:
 
     
     
-    RawDB rawdb_;
-    std::vector<RawDB> rawdb_list_;
+    EncodedDB rawdb_;
+    std::vector<EncodedDB> rawdb_list_;
     PirDB  db_;
     std::vector<PirDB>  db_list_;
     std::vector<seal::Plaintext> encoded_db_;
 
     
-    RawDB populate_return_raw_db();
+    EncodedDB populate_return_raw_db();
     void round_dbs();
-    void round_db(RawDB& db);
+    void round_db(EncodedDB& db);
 
     PirDB convert_to_pir_db(int rawdb_index);
     void merge_pir_dbs();
 
-    std::vector<uint64_t> convert_to_list_of_coeff(rawdatablock input_list); 
+    std::vector<uint64_t> convert_to_list_of_coeff(block input_list); 
     void rotate_db_cols();
     vector<seal::Ciphertext> rotate_copy_query(uint32_t client_id);
     void encode_db();

@@ -1,8 +1,8 @@
 #include "pirparams.h"
 using namespace seal;
 
-PirParams::PirParams(size_t num_entries, size_t entry_size, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions = 0) : num_entries_(num_entries),
-                                                                                                                entry_size_(entry_size),
+PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions = 0) : num_entries_(num_entries),
+                                                                                                                entry_size_(blocksize),
                                                                                                                 db_count_(db_count)
 {
 
@@ -20,7 +20,7 @@ PirParams::PirParams(size_t num_entries, size_t entry_size, size_t db_count, sea
     }
 
     // calculate number of columns per entry
-    calculate_num_slots_per_entry(entry_size);
+    calculate_num_slots_per_entry(blocksize);
 
     // round the number of entries should be called after dimensions are calculated
     calculate_rounded_db_size();
@@ -90,7 +90,7 @@ uint64_t PirParams::get_default_value() const
 
 void PirParams::calculate_num_slots_per_entry(size_t entry_size)
 {
-    num_columns_per_entry_ = ceil((8 * entry_size * 1.0) / (seal_params_.plain_modulus().bit_count() - 1));
+    num_columns_per_entry_ = ceil((entry_size * 1.0) / (seal_params_.plain_modulus().bit_count() - 1));
 }
 
 void PirParams::calculate_db_ptx()

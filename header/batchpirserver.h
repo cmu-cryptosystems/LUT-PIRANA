@@ -4,8 +4,10 @@
 #include "batchpirparams.h"
 #include "LowMC.h"
 #include "src/utils.h"
+#include "server.h"
 #include <cstdint>
 #include <seal/ciphertext.h>
+#include <seal/decryptor.h>
 #include <seal/plaintext.h>
 #include <sys/types.h>
 #include "database_constants.h"
@@ -19,8 +21,8 @@ public:
     // std::unordered_map<std::string, uint64_t> get_hash_map() const;
     void set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys> keys);
     void get_client_keys();
-    vector<PIRResponseList> generate_response(uint32_t client_id, vector<PIRQuery> queries);
-    bool check_decoded_entries(RawResponses entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
+    vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
+    bool check_decoded_entries(RawDB entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
     void prepare_pir_server();
@@ -34,7 +36,7 @@ public:
     std::array<std::map<size_t, block>, 1 << DatabaseConstants::OutputLength> encryption_array;
 
 #ifndef DEBUG 
-private:
+// private:
 #endif
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
@@ -54,7 +56,7 @@ private:
     std::array<vector<uint64_t>, DatabaseConstants::NumHashFunctions> plain_col_of_interest;
     #endif
 
-    void lowmc_prepare(std::vector<LowMC>& ciphers, LowMC& H, bool parallel = false);
+    void lowmc_prepare(std::vector<LowMC>& ciphers, LowMC& H);
     void lowmc_encode();
     void lowmc_encrypt();
     void initialize_nonces_masks();
@@ -74,6 +76,9 @@ private:
     size_t gap_;
     PIRQuery query_; 
     size_t num_databases_;
+    
+    vector<Server> server_list_;
+    seal::Decryptor *decryptor_;
 
 };
 

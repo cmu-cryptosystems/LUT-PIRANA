@@ -7,13 +7,14 @@
 #include <cmath>
 #include "src/utils.h"
 #include "seal/seal.h"
+#include <cassert>
 
 
 using namespace std;
 
 class PirParams {
 public:
-    PirParams(size_t num_entries, size_t entry_size, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions);
+    PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions);
 
     size_t get_num_entries() const;
     size_t get_rounded_num_entries() const;

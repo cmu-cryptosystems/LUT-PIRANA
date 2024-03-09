@@ -8,6 +8,7 @@
 #include "../src/utils.h"
 using namespace seal;
 
+
 class BatchPirParams {
 public:
     BatchPirParams(int batch_size ,size_t num_entries, size_t entry_size, EncryptionParameters seal_params);
@@ -25,7 +26,9 @@ public:
     uint64_t get_default_value();
     uint32_t get_num_slots_per_entry();
     seal::EncryptionParameters get_seal_parameters() const;
+    const BatchPirType get_type() {return type_;}
 
+    void set_first_dimension_size();
     void print_params() const;
 
 private:
@@ -37,10 +40,10 @@ private:
     size_t entry_size_= 0;
     size_t max_attempts_= 0;
     // size_t max_bucket_size_= 0;
+    size_t dim_size_= 0;
     uint64_t default_value_ = DatabaseConstants::DefaultVal;
     seal::EncryptionParameters seal_params_;
-
-    void set_first_dimension_size(size_t max_bucket_size);
+    BatchPirType type_;
 };
 
 #endif // BATCH_PIR_PARAMS_H

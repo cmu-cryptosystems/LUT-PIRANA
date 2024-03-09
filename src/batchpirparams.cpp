@@ -8,7 +8,8 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
       cuckoo_factor_bucket_(DatabaseConstants::CuckooFactorBucket),
       num_entries_(num_entries),
       entry_size_(blocksize),
-      max_attempts_(DatabaseConstants::MaxAttempts){
+      max_attempts_(DatabaseConstants::MaxAttempts),
+      type_(DatabaseConstants::type){
 
         seal_params_ = seal_params;
 
@@ -45,8 +46,8 @@ size_t BatchPirParams::get_num_entries() {
 }
 
 size_t BatchPirParams::get_num_buckets() {
-    return seal_params_.poly_modulus_degree() / get_num_slots_per_entry();
-    // return ceil(cuckoo_factor_ * batch_size_);
+    // return seal_params_.poly_modulus_degree() / get_num_slots_per_entry();
+    return ceil(cuckoo_factor_ * batch_size_);
 }
 
 size_t BatchPirParams::get_bucket_size() {
@@ -61,10 +62,27 @@ size_t BatchPirParams::get_max_attempts() {
     return max_attempts_;
 }
 
+size_t BatchPirParams::get_first_dimension_size() {
+    return dim_size_;
+}
+
 uint64_t BatchPirParams::get_default_value(){
     return default_value_;
 }
 
+void BatchPirParams::set_first_dimension_size(){
+    size_t cube_root = std::ceil(std::cbrt(get_bucket_size()));
+    dim_size_ = utils::next_power_of_two(cube_root);
+    auto dim_size = dim_size_;
+    auto prev_dim_size = dim_size;
+    auto batch_size = ceil((batch_size_*cuckoo_factor_)*1.0/2);
+    while(batch_size * dim_size <= seal_params_.poly_modulus_degree()/2){
+        prev_dim_size = dim_size;
+        dim_size = utils::next_power_of_two(dim_size + 1);
+        
+    }
+    dim_size_ = prev_dim_size;
+}
 
 void BatchPirParams::print_params() const {
 std::cout << "+---------------------------------------------------+" << std::endl;

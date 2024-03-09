@@ -20,13 +20,17 @@ public:
     PIRQuery gen_query(vector<uint64_t> indices);
     seal::KeyGenerator* get_keygen();
     vector<uint64_t> get_entry_list();
-    rawdatablock decode_response(PIRResponseList response);
+    block decode_response(PIRResponseList response);
     RawResponses decode_responses(PIRResponseList response);
-    std::vector<rawdatablock> single_pir_decode_responses(PIRResponseList response);
+    std::vector<block> single_pir_decode_responses(PIRResponseList response);
     RawResponses decode_responses_chunks(PIRResponseList response);
     vector<RawResponses> decode_merged_responses(PIRResponseList response, size_t cuckoo_size,vector<vector<uint64_t>> entry_slot_lists);
 
+    size_t query_length() {return pir_params_.get_dimensions().size();}
+
+#ifndef DEBUG
 private:
+#endif
     // Private member variables
     PirParams pir_params_;
     seal::SEALContext* context_;
@@ -49,7 +53,7 @@ private:
 
     // Private member functions
     std::vector<size_t> compute_indices(uint64_t desired_index);
-    rawdatablock convert_to_rawdb_entry(std::vector<uint64_t>  input_list);
+    block convert_to_rawdb_entry(std::vector<uint64_t>  input_list);
     PIRQuery merge_pir_queries(vector<PirDB> plain_queries);
     void check_noise_budget(const seal::Ciphertext& response); 
 };

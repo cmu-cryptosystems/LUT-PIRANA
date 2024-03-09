@@ -19,7 +19,8 @@ typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
 typedef  std::vector<seal::Ciphertext> PIRResponseList;
 typedef  std::vector<rawdatablock>  RawDB;
-typedef  std::vector<rawdatablock>  RawResponses;
+typedef  std::vector<block>  EncodedDB;
+typedef  std::vector<block>  RawResponses;
 typedef  std::vector<uint64_t> Row;
 typedef  std::vector<Row> PirDB;
 using namespace std;
@@ -104,7 +105,7 @@ namespace utils {
         return candidate_buckets;
     }
 
-    template< size_t size>
+    template< size_t size = blocksize>
     typename std::bitset<size> random_bitset( double p = 0.5) {
         typename std::bitset<size> bits;
         std::random_device rd;
