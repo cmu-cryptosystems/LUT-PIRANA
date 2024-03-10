@@ -25,8 +25,6 @@ add_executable(vectorized_batch_pir ${SOURCES})
 # Set include directories
 target_include_directories(vectorized_batch_pir PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(vectorized_batch_pir PUBLIC extern/tqdm/include)
-
 # Set C++ standard
 set_target_properties(vectorized_batch_pir PROPERTIES CXX_STANDARD 11)
 

@@ -8,7 +8,6 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <tqdm/tqdm.h>
 
 using namespace utils;
 
@@ -308,7 +307,6 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
 
             #pragma omp parallel for if(DatabaseConstants::parallel)
             for (int column=0; column < subbucket_size; column++) {
-            // for (int bucket_idx : tqdm::range(bucket_size)) {
                 auto code = utils::get_perfect_constant_weight_codeword(column);
                 assert (code.size() == m);
                 vector<Ciphertext> c_to_mul;
