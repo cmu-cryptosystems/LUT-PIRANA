@@ -597,7 +597,7 @@ std::vector<uint64_t> Server::convert_to_list_of_coeff(datablock input_list)
         size_t end = std::min((out_idx + 1) * size_of_coeff, (unsigned)datablock_size);
         bit_str += datablock(output_list[out_idx]).to_string().substr(datablock_size-(end - start));
     }
-    assert (datablock(bit_str) == input_list);
+    utils::check(datablock(bit_str) == input_list);
 
     return output_list;
 }

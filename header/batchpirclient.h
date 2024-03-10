@@ -3,11 +3,8 @@
 
 
 #include "batchpirparams.h"
-#include "src/utils.h"
+#include "utils.h"
 #include "client.h"
-#ifdef DEBUG
-#include "header/batchpirserver.h"
-#endif
 
 using namespace std;
 
@@ -26,9 +23,7 @@ public:
     // query index to bucket index
     std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;
 
-#ifndef DEBUG
 private:
-#endif
     BatchPirParams batchpir_params_;
     size_t max_attempts_;
     bool is_cuckoo_generated_;
@@ -44,11 +39,6 @@ private:
     seal::BatchEncoder* batch_encoder_;
     seal::GaloisKeys gal_keys_;
     seal::RelinKeys relin_keys_;
-
-    #ifdef DEBUG 
-    seal::Evaluator *evaluator_;
-    BatchPIRServer *server;
-    #endif
 
     void measure_size(vector<Ciphertext> list, size_t seeded = 1);
     bool cuckoo_hash(vector<vector<string>> batch);

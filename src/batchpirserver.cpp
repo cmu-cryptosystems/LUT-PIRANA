@@ -31,24 +31,11 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
 }
 
 void BatchPIRServer::initialize() {
-
-    std::cout << "BatchPIRServer: Performing LowMC encoding..." << std::endl;
-
-    timing_start("Initialization");
-
     initialize_masks();
     lowmc_prepare();
-    timing_end("Initialization");
-
-    timing_start("Encoding");
     lowmc_encode();
-    timing_end("Encoding");
-    
-    timing_start("Encryption");
     lowmc_encrypt();
-    timing_end("Encryption");
-
-    std::cout << "BatchPIRServer: LowMC encoding completed." << std::endl;
+    prepare_pir_server();
 }
 
 void BatchPIRServer::populate_raw_db()
@@ -100,7 +87,7 @@ void BatchPIRServer::lowmc_prepare() {
     for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
         ciphers.emplace_back(LowMC(random_bitset<keysize>()));
     }
-    assert(num_candidates == ciphers.size());
+    check(num_candidates == ciphers.size());
 
     #pragma omp parallel for if(DatabaseConstants::parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
@@ -223,16 +210,6 @@ void BatchPIRServer::prepare_pir_server()
                     batch_encoder_->encode(plain_col[slot_idx], encoded_columns[hash_idx][column][slot_idx]);
                 }
                 
-                #ifdef DEBUG 
-                auto hash_idx = std::find(icol_of_interest.begin(), icol_of_interest.end(), column) - icol_of_interest.begin();
-                if (hash_idx < DatabaseConstants::NumHashFunctions) {
-                    cout << "Main: column entry " << column << ": " << endl;
-                    for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                        cout << "Main: slot " << slot_idx << ": " << plain_col[slot_idx][iB_of_interest] << endl;
-                        plain_col_of_interest[hash_idx].push_back(plain_col[slot_idx][iB_of_interest]);
-                    }
-                }
-                #endif
             }
 
             #pragma omp parallel for collapse(2) if (DatabaseConstants::parallel)
@@ -298,8 +275,6 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     vector<PIRResponseList> response(w);
 
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        cout << fmt::format("Processing query {}/{}", hash_idx, w) << endl;
-
         if (type == PIRANA) {
             masked_value.clear();
             masked_value.resize(num_columns_per_entry, PIRResponseList(subbucket_size));
@@ -308,14 +283,14 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
             #pragma omp parallel for if(DatabaseConstants::parallel)
             for (int column=0; column < subbucket_size; column++) {
                 auto code = utils::get_perfect_constant_weight_codeword(column);
-                assert (code.size() == m);
+                utils::check(code.size() == m);
                 vector<Ciphertext> c_to_mul;
                 for (int code_idx = 0; code_idx < m; code_idx++) {
                     if (code[code_idx] == 1ULL) {
                         c_to_mul.push_back(queries[hash_idx][0][code_idx]);
                     }
                 }
-                assert(c_to_mul.size() == 2);
+                check(c_to_mul.size() == 2);
 
                 Ciphertext mask;
                 
@@ -330,15 +305,6 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                     evaluator_->multiply_plain(mask, encoded_columns[hash_idx][column][slot_idx], masked_value[slot_idx][column]);
                 }
 
-                #ifdef DEBUG 
-                if (column == icol_of_interest[hash_idx]) {
-                    mq[hash_idx] = mask;
-                    mv[hash_idx].resize(num_columns_per_entry);
-                    for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                        mv[hash_idx][slot_idx] = masked_value[slot_idx][column];
-                    }
-                }
-                #endif
             }
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
@@ -366,14 +332,14 @@ bool BatchPIRServer::check_decoded_entries(vector<EncodedDB> entries_list, vecto
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             const auto pos = candidate_positions_array[original_index][hash_idx];
             auto [index, entry] = utils::split<DatabaseConstants::OutputLength>(entries_list[bucket][hash_idx]);
-            assert (entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos]);
+            utils::check(entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos]);
             auto idx = index ^ index_masks[hash_idx][bucket];
             auto data = entry ^ entry_masks[hash_idx][bucket];
             if (idx == queries[original_index] && data == rawdb_[queries[original_index].to_ullong()]) {
                 flag = true;
             }
         }
-        assert (flag);
+        utils::check(flag);
     }
 
     return true;

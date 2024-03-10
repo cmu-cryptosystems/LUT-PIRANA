@@ -3,7 +3,7 @@
 
 #include "batchpirparams.h"
 #include "LowMC.h"
-#include "src/utils.h"
+#include "utils.h"
 #include "server.h"
 #include <cstdint>
 #include <seal/ciphertext.h>
@@ -32,9 +32,7 @@ public:
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_buckets_array;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;
 
-#ifndef DEBUG 
 private:
-#endif
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
     array<vector<EncodedDB>, DatabaseConstants::NumHashFunctions> buckets_;
@@ -43,15 +41,6 @@ private:
     bool is_client_keys_set_;
     std::vector<std::unordered_map<uint64_t, uint64_t>> position_to_key;
     vector<PIRResponseList> masked_value;
-
-    #ifdef DEBUG 
-    std::array<Ciphertext, DatabaseConstants::NumHashFunctions> mq;
-    std::array<PIRResponseList, DatabaseConstants::NumHashFunctions> mv;
-    int i_of_interest;
-    int iB_of_interest;
-    vector<uint64_t> icol_of_interest;
-    std::array<vector<uint64_t>, DatabaseConstants::NumHashFunctions> plain_col_of_interest;
-    #endif
 
     void lowmc_prepare();
     void lowmc_encode();

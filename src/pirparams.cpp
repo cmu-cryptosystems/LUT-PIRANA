@@ -1,4 +1,6 @@
 #include "pirparams.h"
+#include "LowMC.h"
+#include "utils.h"
 using namespace seal;
 
 PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions = 0) : num_entries_(num_entries),

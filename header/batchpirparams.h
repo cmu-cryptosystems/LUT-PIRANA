@@ -2,10 +2,9 @@
 #define BATCH_PIR_PARAMS_H
 
 #include <cstddef>
-#include <iomanip> 
 #include <cstdlib>
 #include "database_constants.h"
-#include "../src/utils.h"
+#include "seal/seal.h"
 using namespace seal;
 
 
@@ -39,7 +38,6 @@ private:
     size_t num_entries_= 0;
     size_t entry_size_= 0;
     size_t max_attempts_= 0;
-    // size_t max_bucket_size_= 0;
     size_t dim_size_= 0;
     uint64_t default_value_ = DatabaseConstants::DefaultVal;
     seal::EncryptionParameters seal_params_;

@@ -39,11 +39,6 @@ int batchpir_main(int argc, char* argv[])
     //  batch size, number of entries, size of entry
     std::vector<std::array<size_t, 3>> input_choices;
     input_choices.push_back({256, 65536, 4});
-    // input_choices.push_back({256, 1048576, 16});
-    // input_choices.push_back({32, 1048576, 32});
-    // input_choices.push_back({64, 1048576, 32});
-    // input_choices.push_back({256, 1048576, 32});
-    
 
     std::vector<std::chrono::milliseconds> init_times;
     std::vector<std::chrono::milliseconds> query_gen_times;
@@ -66,22 +61,16 @@ int batchpir_main(int argc, char* argv[])
     params.print_params();
 
     BatchPIRServer batch_server(params);
+    BatchPIRClient batch_client(params);
+
     auto start = chrono::high_resolution_clock::now();
     batch_server.initialize();
-    #ifndef DEBUG 
-    std::cout << "BatchPIRServer: Preparing PIR servers......" << std::endl;
-    timing_start("Plaintext encoding");
-    batch_server.prepare_pir_server();
-    timing_end("Plaintext encoding");
-    std::cout << "BatchPIRServer: PIR servers preparation complete." << std::endl;
-    #endif
     auto end = chrono::high_resolution_clock::now();
     auto duration_init = chrono::duration_cast<chrono::milliseconds>(end - start);
     cout << "Main: Initialization complete for example " << (iteration + 1) << "." << endl;
     init_times.push_back(duration_init);
 
-    BatchPIRClient batch_client(params);
-
+    // preparing queries
     vector<rawdatablock> plain_queries(choice[0]);
     vector<vector<string>> batch(choice[0]);
     for (int i = 0; i < choice[0]; i++)
@@ -102,39 +91,6 @@ int batchpir_main(int argc, char* argv[])
     query_gen_times.push_back(duration_querygen);
     cout << "Main: Query generation complete for example " << (iteration + 1) << "." << endl;
 
-    #ifdef DEBUG 
-    batch_server.i_of_interest = 2;
-    batch_server.iB_of_interest = batch_client.inv_cuckoo_map[batch_server.i_of_interest];
-    batch_server.icol_of_interest = batch_client.bucket_to_position[batch_server.iB_of_interest];
-    size_t x_of_interest = plain_queries[batch_server.i_of_interest].to_ullong();
-    cout << fmt::format("debug example: i={}, B={}, x={}, nonce={}, \ncol=\n", batch_server.i_of_interest, batch_server.iB_of_interest, x_of_interest, batch_server.nonces[batch_server.iB_of_interest].to_string());
-    for (auto col: batch_server.icol_of_interest) {
-        cout << fmt::format("{}(= {}) \n", col, batch_server.buckets_[batch_server.iB_of_interest][col].to_string());
-    }
-    cout << endl;
-
-    std::cout << "BatchPIRServer: Preparing PIR servers......" << std::endl;
-    batch_server.prepare_pir_server();
-    std::cout << "BatchPIRServer: PIR servers preparation complete." << std::endl;
-    
-    block mask_i = enc_masks[batch_server.i_of_interest];
-    cout << fmt::format("encmask[{}, {}]={}\n", batch_server.iB_of_interest, x_of_interest, mask_i.to_string()); // H (j, x)
-    for (auto [bucket, value]: batch_server.encryption_array[x_of_interest]) {
-        cout << fmt::format("encrypt[{}, {}]={}\n", bucket, x_of_interest, value.to_string());
-    }
-
-    int f = 0;
-    for (auto col: batch_server.icol_of_interest) {
-        if(utils::split(mask_i ^ batch_server.buckets_[batch_server.iB_of_interest][col]).first == batch_server.nonces[batch_server.iB_of_interest]) {
-            f++;
-        }
-    }
-    if (f!=1) {
-        throw std::runtime_error("Error: Mask incorrect");
-    }
-
-    #endif
-
     batch_server.set_client_keys(client_id, batch_client.get_public_keys());
     
     cout << "Main: Starting response generation for example " << (iteration + 1) << "..." << endl;
@@ -144,59 +100,6 @@ int batchpir_main(int argc, char* argv[])
     auto duration_respgen = chrono::duration_cast<chrono::milliseconds>(end - start);
     resp_gen_times.push_back(duration_respgen);
     cout << "Main: Response generation complete for example " << (iteration + 1) << "." << endl;
-    
-    #ifdef DEBUG 
-    if (DatabaseConstants::type == PIRANA) {
-        Plaintext pt;
-        cout << "Checking masks......" << endl;
-        for (int hash_idx=0; hash_idx<params.get_num_hash_funcs(); hash_idx++) {
-            batch_server.evaluator_->transform_from_ntt_inplace(batch_server.mq[hash_idx]);
-            batch_client.decryptor_->decrypt(batch_server.mq[hash_idx], pt);
-            vector<uint64_t> plain_entry(params.get_num_buckets());
-            batch_client.batch_encoder_->decode(pt, plain_entry);
-            auto column = batch_server.icol_of_interest[hash_idx];
-            for (int row = 0; row < params.get_num_buckets(); row++) {
-                if (plain_entry[row] != (batch_client.bucket_to_position[row][hash_idx] == column)) {
-                    cerr << fmt::format("Error: {} {} {}", row, column, row) << endl;
-                    exit(1);
-                }
-            }
-        }
-        
-        cout << "Checking masked values......" << endl;
-        vector<vector<uint64_t>> plain_masked_value(params.get_num_hash_funcs(), vector<uint64_t>(params.get_num_buckets()));
-        for (int hash_idx=0; hash_idx<params.get_num_hash_funcs(); hash_idx++) {
-            for (int slot_idx = 0; slot_idx < params.get_num_slots_per_entry(); slot_idx++) {
-                batch_server.evaluator_->transform_from_ntt_inplace(batch_server.mv[hash_idx][slot_idx]);
-                batch_client.decryptor_->decrypt(batch_server.mv[hash_idx][slot_idx], pt);
-                batch_client.batch_encoder_->decode(pt, plain_masked_value[hash_idx]);
-
-                if (plain_masked_value[hash_idx][batch_server.iB_of_interest] != batch_server.plain_col_of_interest[hash_idx][slot_idx]) {
-                    throw std::runtime_error(
-                        fmt::format("Error: {} {}", plain_masked_value[hash_idx][batch_server.iB_of_interest], batch_server.plain_col_of_interest[hash_idx][slot_idx])
-                    );
-                }
-            }
-        }
-        
-        cout << "Checking raw responses......" << endl;
-        for (int hash_idx=0; hash_idx<params.get_num_hash_funcs(); hash_idx++) {
-            for (int slot_idx = 0; slot_idx < params.get_num_slots_per_entry(); slot_idx++) {
-                batch_client.decryptor_->decrypt(responses[hash_idx][slot_idx], pt);
-                vector<uint64_t> plain_entry(params.get_num_buckets());
-                batch_client.batch_encoder_->decode(pt, plain_entry);
-                if (batch_server.plain_col_of_interest[hash_idx][slot_idx] != plain_entry[batch_server.iB_of_interest]) {
-                    throw std::runtime_error(
-                        fmt::format("Error: {} {}", plain_masked_value[hash_idx][batch_server.iB_of_interest], plain_entry[batch_server.iB_of_interest])
-                    );
-                }
-            }
-        }
-            
-    }
-
-    batch_client.server = &batch_server;
-    #endif
 
     cout << "Main: Checking decoded entries for example " << (iteration + 1) << "..." << endl;
     auto decode_responses = batch_client.decode_responses(responses);

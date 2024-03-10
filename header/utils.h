@@ -40,6 +40,13 @@ namespace utils {
 
 
     // Prints an error message and exits the program with an error code
+    inline void check(bool condition, const std::string& error_message="Encounter errors!") {
+        if (!condition) {
+            throw std::runtime_error(error_message);
+        }
+    }
+
+    // Prints an error message and exits the program with an error code
     inline void error_exit(const std::string& error_message, int error_code = 1) {
         std::cerr << "Error: " << error_message << std::endl;
         exit(error_code);

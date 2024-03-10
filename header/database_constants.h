@@ -4,8 +4,6 @@
 #include <limits>
 #include <cstdint>
 
-// #define DEBUG 1
-
 enum BatchPirType {
     PIRANA, 
     UIUC

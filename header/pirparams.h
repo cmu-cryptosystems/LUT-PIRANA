@@ -4,10 +4,8 @@
 #include <cstddef>
 #include <cstdlib>
 #include <vector>
-#include <cmath>
-#include "src/utils.h"
+#include "database_constants.h"
 #include "seal/seal.h"
-#include <cassert>
 
 
 using namespace std;

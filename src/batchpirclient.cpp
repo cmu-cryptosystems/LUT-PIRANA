@@ -191,9 +191,6 @@ void BatchPIRClient::prepare_pir_clients()
         // setting client's public keys
         keygen_->create_galois_keys(gal_keys_);
         keygen_->create_relin_keys(relin_keys_);
-        #ifdef DEBUG 
-        evaluator_ = new Evaluator(*context_);
-        #endif
     }
 }
 
@@ -238,14 +235,10 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
             }
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                 if (cuckoo_map.count(bucket_idx)) {
-                    assert (str_entries[bucket_idx].size() == datablock_size);
+                    utils::check (str_entries[bucket_idx].size() == datablock_size);
                     entries_list[bucket_idx][hash_idx] = datablock(str_entries[bucket_idx]);
                 }
             }
-            // Unmask
-            #ifdef DEBUG 
-            cout << fmt::format("query {}: Unmask {} with {} -> {}", hash_idx, str_entries[server->iB_of_interest], encryption_masks[cuckoo_map.at(server->iB_of_interest)].to_string(), entries_list[server->iB_of_interest][hash_idx].to_string()) << endl;
-            #endif
         } else {
 
             const size_t num_slots_per_entry = batchpir_params_.get_num_slots_per_entry();
@@ -276,7 +269,7 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
                 }
             }
 
-            assert (all_entries.size() == num_buckets);
+            utils::check(all_entries.size() == num_buckets);
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                 if (cuckoo_map.count(bucket_idx)) {
                     entries_list[bucket_idx][hash_idx] = all_entries[bucket_idx];

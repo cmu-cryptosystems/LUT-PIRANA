@@ -2,9 +2,7 @@
 #define SERVER_H
 
 #include "pirparams.h"
-#ifdef DEBUG
-#include <seal/decryptor.h>
-#endif
+#include "utils.h"
 
 using namespace seal;
 using namespace utils;

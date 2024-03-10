@@ -1,4 +1,7 @@
 #include "batchpirparams.h"
+#include <iomanip>
+#include "LowMC.h"
+#include "utils.h"
 
 
 BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size, EncryptionParameters seal_params)

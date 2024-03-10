@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "LowMC.h"
-#include "src/utils.h"
+#include "utils.h"
 
 
 /////////////////////////////

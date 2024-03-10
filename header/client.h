@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "pirparams.h"
+#include "utils.h"
 
 class Client {
 public:
@@ -24,9 +25,7 @@ public:
 
     size_t query_length() {return pir_params_.get_dimensions().size();}
 
-#ifndef DEBUG
 private:
-#endif
     // Private member variables
     PirParams pir_params_;
     seal::SEALContext* context_;
