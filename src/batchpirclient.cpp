@@ -83,11 +83,6 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
         }
     }
 
-    for(auto& qs: queries) {
-        for (auto& q: qs) {
-            measure_size(q, 2);
-        }
-    }
     return queries;
 }
 
@@ -140,9 +135,9 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
 }
 
 void BatchPIRClient::measure_size(vector<Ciphertext> list, size_t seeded){
-    for (int i=0; i < list.size(); i++){
-        serialized_comm_size_ += ceil(list[i].save_size()/seeded);
-    }
+    // for (int i=0; i < list.size(); i++){
+    //     serialized_comm_size_ += ceil(list[i].save_size()/seeded);
+    // }
 }
 
 size_t BatchPIRClient::get_serialized_commm_size(){
@@ -152,6 +147,8 @@ size_t BatchPIRClient::get_serialized_commm_size(){
 
 void BatchPIRClient::prepare_pir_clients()
 {
+    
+    context_ = new SEALContext(batchpir_params_.get_seal_parameters());
     if (batchpir_params_.get_type() == UIUC) {
         size_t max_bucket_size = batchpir_params_.get_bucket_size();
         size_t num_hash_funcs = batchpir_params_.get_num_hash_funcs();
@@ -182,15 +179,23 @@ void BatchPIRClient::prepare_pir_clients()
             }
         }
     } else {
-        context_ = new SEALContext(batchpir_params_.get_seal_parameters());
         batch_encoder_ = new BatchEncoder(*context_);
         keygen_ = new KeyGenerator(*context_);
         secret_key_ = keygen_->secret_key();
         encryptor_ = new Encryptor(*context_, secret_key_);
         decryptor_ = new Decryptor(*context_, secret_key_);
+        
         // setting client's public keys
-        keygen_->create_galois_keys(gal_keys_);
-        keygen_->create_relin_keys(relin_keys_);
+        auto glk = keygen_->create_galois_keys();
+        auto rlk = keygen_->create_relin_keys();
+        glk_buffer.resize(glk.save_size());
+        rlk_buffer.resize(rlk.save_size());
+        size_t glk_size = glk.save(glk_buffer.data(), glk_buffer.size());
+        size_t rlk_size = rlk.save(rlk_buffer.data(), rlk_buffer.size());
+        glk_buffer.resize(glk_size);
+        rlk_buffer.resize(rlk_size);
+        gal_keys_.load(*context_, glk_buffer.data(), glk_size);
+        relin_keys_.load(*context_, rlk_buffer.data(), rlk_size);
     }
 }
 
@@ -216,7 +221,6 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
     for (int hash_idx = 0; hash_idx < w; hash_idx++)
     {
         auto& response = responses[hash_idx];
-        measure_size(response);
 
         if (type == PIRANA) {
             vector<string> str_entries(num_buckets, "");
@@ -281,11 +285,14 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
     return entries_list;
 }
 
-std::pair<GaloisKeys, RelinKeys> BatchPIRClient::get_public_keys()
+std::pair<vector<seal_byte>, vector<seal_byte>>  BatchPIRClient::get_public_keys()
 {
+    std::pair<vector<seal_byte>, vector<seal_byte>> public_keys;
     if (batchpir_params_.get_type() == UIUC) {
-        return client_list_[0][0].get_public_keys();
+        public_keys = client_list_[0][0].get_public_keys();
     } else {
-        return std::make_pair(gal_keys_, relin_keys_);
+        public_keys = std::make_pair(vector<seal_byte>{}, rlk_buffer);
     }
+    serialized_comm_size_ += public_keys.first.size() + public_keys.second.size();
+    return public_keys;
 }

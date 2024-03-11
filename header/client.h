@@ -12,7 +12,7 @@ public:
 
     // Public member functions
 
-    std::pair<seal::GaloisKeys, seal::RelinKeys> get_public_keys();
+    std::pair<vector<seal_byte>, vector<seal_byte>> get_public_keys();
     PIRQuery gen_query(uint64_t index);
     PIRQuery gen_query(vector<uint64_t> indices);
     seal::KeyGenerator* get_keygen();
@@ -24,6 +24,8 @@ public:
     vector<RawResponses> decode_merged_responses(PIRResponseList response, size_t cuckoo_size,vector<vector<uint64_t>> entry_slot_lists);
 
     size_t query_length() {return pir_params_.get_dimensions().size();}
+    
+    vector<seal_byte> glk_buffer, rlk_buffer;
 
 private:
     // Private member variables

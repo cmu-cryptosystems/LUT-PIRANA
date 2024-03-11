@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <cstdlib>
 #include <chrono>
@@ -53,16 +54,13 @@ int batchpir_main(int argc, char* argv[])
 
     const auto& choice = input_choices[iteration];
 
-    string selection = std::to_string(choice[0]) + "," + std::to_string(choice[1]) + "," + std::to_string(choice[2]);
-
-    auto encryption_params = utils::create_encryption_parameters(selection);
-    BatchPirParams params(choice[0], choice[1], choice[2], encryption_params);
-    params.set_first_dimension_size();
+    BatchPirParams params(choice[0], choice[1], choice[2]);
     params.print_params();
 
     BatchPIRServer batch_server(params);
     BatchPIRClient batch_client(params);
 
+    batch_server.populate_raw_db();
     auto start = chrono::high_resolution_clock::now();
     batch_server.initialize();
     auto end = chrono::high_resolution_clock::now();
@@ -86,23 +84,30 @@ int batchpir_main(int argc, char* argv[])
     cout << "Main: Starting query generation for example " << (iteration + 1) << "..." << endl;
     start = chrono::high_resolution_clock::now();
     auto queries = batch_client.create_queries(batch);
+    auto query_buffer = batch_client.serialize_query(queries);
     end = chrono::high_resolution_clock::now();
     auto duration_querygen = chrono::duration_cast<chrono::milliseconds>(end - start);
     query_gen_times.push_back(duration_querygen);
     cout << "Main: Query generation complete for example " << (iteration + 1) << "." << endl;
 
-    batch_server.set_client_keys(client_id, batch_client.get_public_keys());
+    auto key_buffer = batch_client.get_public_keys();
+    batch_server.set_client_keys(client_id, key_buffer);
     
     cout << "Main: Starting response generation for example " << (iteration + 1) << "..." << endl;
     start = chrono::high_resolution_clock::now();
+    auto queries_deserialized = batch_server.deserialize_query(query_buffer);
     vector<PIRResponseList> responses = batch_server.generate_response(client_id, queries);
+    auto response_buffer = batch_server.serialize_response(responses);
     end = chrono::high_resolution_clock::now();
     auto duration_respgen = chrono::duration_cast<chrono::milliseconds>(end - start);
     resp_gen_times.push_back(duration_respgen);
     cout << "Main: Response generation complete for example " << (iteration + 1) << "." << endl;
 
     cout << "Main: Checking decoded entries for example " << (iteration + 1) << "..." << endl;
+    timing_start("Decoding");
+    auto responses_deserialized = batch_client.deserialize_response(response_buffer);
     auto decode_responses = batch_client.decode_responses(responses);
+    timing_end("Decoding");
 
     communication_list.push_back(batch_client.get_serialized_commm_size());
 

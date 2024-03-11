@@ -1,4 +1,4 @@
-#include "header/batchpirserver.h"
+#include "batchpirserver.h"
 #include "utils.h"
 #include <algorithm>
 #include <cstdint>
@@ -16,10 +16,7 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
     batchpir_params_ = &batchpir_params;
     is_client_keys_set_ = false;
     lowmc_encoded = false;
-
-    std::cout << "BatchPIRServer: Populating raw database..." << std::endl;
-    populate_raw_db();
-    std::cout << "BatchPIRServer: Raw database populated." << std::endl;
+    is_db_populated = false;
 
     context_ = new SEALContext(batchpir_params_->get_seal_parameters());
     evaluator_ = new Evaluator(*context_);
@@ -31,6 +28,7 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
 }
 
 void BatchPIRServer::initialize() {
+    check(is_db_populated, "Error: Database not populated.");
     initialize_masks();
     lowmc_prepare();
     lowmc_encode();
@@ -38,7 +36,7 @@ void BatchPIRServer::initialize() {
     prepare_pir_server();
 }
 
-void BatchPIRServer::populate_raw_db()
+void BatchPIRServer::populate_raw_db(std::function<rawdatablock(size_t)> generator)
 {
     auto db_entries = batchpir_params_->get_num_entries();
 
@@ -48,8 +46,9 @@ void BatchPIRServer::populate_raw_db()
     // Populate the rawdb vector with entries
     for (size_t i = 0; i < db_entries; ++i)
     {
-        rawdb_[i] = random_bitset<DatabaseConstants::OutputLength>();
+        rawdb_[i] = generator(i);
     }
+    is_db_populated = true;
 }
 
 void BatchPIRServer::initialize_masks() {
@@ -236,17 +235,25 @@ void BatchPIRServer::prepare_pir_server()
     }
 }
 
-void BatchPIRServer::set_client_keys(uint32_t client_id, std::pair<GaloisKeys, RelinKeys> keys)
+void BatchPIRServer::set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys)
 {
     size_t w = batchpir_params_->get_num_hash_funcs();
-    client_keys_[client_id] = keys;
+    auto type = batchpir_params_->get_type();
+
+    if (type == PIRANA) {
+        auto [glk_buffer, rlk_buffer] = keys;
+        seal::RelinKeys rlk;
+        rlk.load(*context_, rlk_buffer.data(), rlk_buffer.size());
+        client_keys_[client_id] = rlk;
+    } else {
+        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+            for (int i = 0; i < server_list_[hash_idx].size(); i++)
+            {
+                server_list_[hash_idx][i].set_client_keys(client_id, keys);
+            }
+        }
+    }
     
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-    for (int i = 0; i < server_list_[hash_idx].size(); i++)
-    {
-        server_list_[hash_idx][i].set_client_keys(client_id, keys);
-    }
-    }
     is_client_keys_set_ = true;
 }
 
@@ -297,7 +304,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                 if (k == 2) {
                     evaluator_->multiply(c_to_mul[0], c_to_mul[1], mask);
                 } else {
-                    evaluator_->multiply_many(c_to_mul, client_keys_[client_id].second, mask);
+                    evaluator_->multiply_many(c_to_mul, client_keys_[client_id], mask);
                 }
                 evaluator_->transform_to_ntt_inplace(mask);
                 // Get column

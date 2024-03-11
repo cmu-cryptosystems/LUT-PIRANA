@@ -35,9 +35,14 @@ Server::Server(PirParams &pir_params, vector<EncodedDB> sub_buckets) : pir_param
     ntt_preprocess_db();
 }
 
-void Server::set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys> keys)
+void Server::set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys)
 {
-    client_keys_[client_id] = keys;
+    auto [glk_buffer, rlk_buffer] = keys;
+    seal::GaloisKeys glk;
+    seal::RelinKeys rlk;
+    glk.load(*context_, glk_buffer.data(), glk_buffer.size());
+    rlk.load(*context_, rlk_buffer.data(), rlk_buffer.size());
+    client_keys_[client_id] = {glk, rlk};
     is_client_keys_set_ = true;
 }
 

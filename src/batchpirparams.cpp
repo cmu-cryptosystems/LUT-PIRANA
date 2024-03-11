@@ -4,7 +4,7 @@
 #include "utils.h"
 
 
-BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size, EncryptionParameters seal_params)
+BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size)
     : num_hash_funcs_(DatabaseConstants::NumHashFunctions),
       batch_size_(batch_size),
       cuckoo_factor_(DatabaseConstants::CuckooFactor),
@@ -14,9 +14,13 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
       max_attempts_(DatabaseConstants::MaxAttempts),
       type_(DatabaseConstants::type){
 
-        seal_params_ = seal_params;
+    string selection = std::to_string(batch_size) + "," + std::to_string(num_entries) + "," + std::to_string(entry_size);
+    seal_params_ = utils::create_encryption_parameters(selection);
+    if (type_ == UIUC) {
+        set_first_dimension_size();
+    }
 
-      }
+}
 
 int BatchPirParams::get_num_hash_funcs() {
     return num_hash_funcs_;

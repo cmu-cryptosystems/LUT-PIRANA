@@ -5,6 +5,9 @@
 #include "batchpirparams.h"
 #include "utils.h"
 #include "client.h"
+#include <seal/galoiskeys.h>
+#include <seal/serializable.h>
+#include <seal/util/defines.h>
 
 using namespace std;
 
@@ -14,7 +17,7 @@ public:
     vector<vector<PIRQuery>> create_queries(vector<vector<string>> batch);
     vector<EncodedDB> decode_responses(vector<PIRResponseList> responses);
 
-    std::pair<seal::GaloisKeys, seal::RelinKeys> get_public_keys();
+    std::pair<vector<seal_byte>, vector<seal_byte>> get_public_keys();
     size_t get_serialized_commm_size();
     
     std::vector<vector<uint64_t>> bucket_to_position;
@@ -22,6 +25,41 @@ public:
     std::unordered_map<uint64_t, uint64_t> cuckoo_map;
     // query index to bucket index
     std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;
+
+    // serialization support
+    inline auto serialize_query(vector<vector<PIRQuery>> queries) {
+        vector<vector<vector<vector<seal_byte>>>> buffer(queries.size());
+        for (int i = 0; i < queries.size(); i++) {
+            auto& query_list = queries[i];
+            buffer[i].resize(query_list.size());
+            for (int j = 0; j < query_list.size(); j++) {
+                auto& query = query_list[j];
+                buffer[i][j].resize(query.size());
+                for (int k = 0; k < query.size(); k++) {
+                    auto& ct = query[k];
+                    size_t save_size = ct.save_size();
+                    buffer[i][j][k].resize(save_size);
+                    auto actual_size = ct.save(buffer[i][j][k].data(), save_size);
+                    buffer[i][j][k].resize(actual_size);
+                    serialized_comm_size_ += actual_size;
+                }
+            }
+        }
+        return buffer;
+    }
+    
+    inline vector<PIRResponseList> deserialize_response(vector<vector<vector<seal_byte>>> responses_buffer) {
+        vector<PIRResponseList> responses(responses_buffer.size());
+        for (int i = 0; i < responses_buffer.size(); i++) {
+            auto& response_buffer = responses_buffer[i];
+            responses[i].resize(response_buffer.size());
+            for (int j = 0; j < response_buffer.size(); j++) {
+                responses[i][j].load(*context_, response_buffer[j].data(), response_buffer[j].size());
+                serialized_comm_size_ += response_buffer[j].size();
+            }
+        }
+        return responses;
+    }
 
 private:
     BatchPirParams batchpir_params_;
@@ -39,6 +77,8 @@ private:
     seal::BatchEncoder* batch_encoder_;
     seal::GaloisKeys gal_keys_;
     seal::RelinKeys relin_keys_;
+
+    vector<seal_byte> glk_buffer, rlk_buffer;
 
     void measure_size(vector<Ciphertext> list, size_t seeded = 1);
     bool cuckoo_hash(vector<vector<string>> batch);

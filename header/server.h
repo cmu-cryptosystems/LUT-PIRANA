@@ -24,8 +24,8 @@ public:
 
     void ntt_preprocess_db();
 
-    void set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys>);
-    void set_client_keys(uint32_t client_id, std::pair<seal::GaloisKeys, seal::RelinKeys> keys, uint64_t id);
+    void set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys);
+    void set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys, uint64_t id);
     void get_client_keys();
 
     PIRResponseList generate_response(uint32_t client_id, PIRQuery query);

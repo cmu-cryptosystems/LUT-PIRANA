@@ -11,8 +11,16 @@ Client::Client(PirParams &pir_params) : pir_params_(pir_params)
     encryptor_ = new seal::Encryptor(*context_, secret_key_);
     decryptor_ = new seal::Decryptor(*context_, secret_key_);
     // setting client's public keys
-    keygen_->create_galois_keys(gal_keys_);
-    keygen_->create_relin_keys(relin_keys_);
+    auto glk = keygen_->create_galois_keys();
+    auto rlk = keygen_->create_relin_keys();
+    glk_buffer.resize(glk.save_size());
+    rlk_buffer.resize(rlk.save_size());
+    size_t glk_size = glk.save(glk_buffer.data(), glk_buffer.size());
+    size_t rlk_size = rlk.save(rlk_buffer.data(), rlk_buffer.size());
+    glk_buffer.resize(glk_size);
+    rlk_buffer.resize(rlk_size);
+    gal_keys_.load(*context_, glk_buffer.data(), glk_buffer.size());
+    relin_keys_.load(*context_, rlk_buffer.data(), rlk_buffer.size());
 
     plaint_bit_count_ = pir_params_.get_seal_parameters().plain_modulus().bit_count();
     polynomial_degree_ = pir_params_.get_seal_parameters().poly_modulus_degree();
@@ -31,9 +39,18 @@ Client::Client(PirParams &pir_params, seal::KeyGenerator *keygen) : pir_params_(
     secret_key_ = keygen_->secret_key();
     encryptor_ = new seal::Encryptor(*context_, secret_key_);
     decryptor_ = new seal::Decryptor(*context_, secret_key_);
+
     // setting client's public keys
-    keygen_->create_galois_keys(gal_keys_);
-    keygen_->create_relin_keys(relin_keys_);
+    auto glk = keygen_->create_galois_keys();
+    auto rlk = keygen_->create_relin_keys();
+    glk_buffer.resize(glk.save_size());
+    rlk_buffer.resize(rlk.save_size());
+    size_t glk_size = glk.save(glk_buffer.data(), glk_buffer.size());
+    size_t rlk_size = rlk.save(rlk_buffer.data(), rlk_buffer.size());
+    glk_buffer.resize(glk_size);
+    rlk_buffer.resize(rlk_size);
+    gal_keys_.load(*context_, glk_buffer.data(), glk_buffer.size());
+    relin_keys_.load(*context_, rlk_buffer.data(), rlk_buffer.size());
 
     plaint_bit_count_ = pir_params_.get_seal_parameters().plain_modulus().bit_count();
     polynomial_degree_ = pir_params_.get_seal_parameters().poly_modulus_degree();
@@ -48,14 +65,14 @@ seal::KeyGenerator *Client::get_keygen()
     return keygen_;
 }
 
-std::pair<seal::GaloisKeys, seal::RelinKeys> Client::get_public_keys()
+std::pair<vector<seal_byte>, vector<seal_byte>>  Client::get_public_keys()
 {
     if (gal_keys_.size() == 0 || relin_keys_.size() == 0)
     {
         std::cerr << "Error: Public keys are not initialized!" << std::endl;
         throw std::runtime_error("Error: Keys are not initialized!");
     }
-    return std::make_pair(gal_keys_, relin_keys_);
+    return std::make_pair(glk_buffer, rlk_buffer);
     ;
 }
 
