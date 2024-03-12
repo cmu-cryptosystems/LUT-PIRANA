@@ -24,19 +24,17 @@ public:
     // bucket index to query index
     std::unordered_map<uint64_t, uint64_t> cuckoo_map;
     // query index to bucket index
-    std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;
+    std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;;
 
     // serialization support
     inline auto serialize_query(vector<vector<PIRQuery>> queries) {
-        vector<vector<vector<vector<seal_byte>>>> buffer(queries.size());
-        for (int i = 0; i < queries.size(); i++) {
-            auto& query_list = queries[i];
-            buffer[i].resize(query_list.size());
-            for (int j = 0; j < query_list.size(); j++) {
-                auto& query = query_list[j];
-                buffer[i][j].resize(query.size());
-                for (int k = 0; k < query.size(); k++) {
-                    auto& ct = query[k];
+        vector<vector<vector<vector<seal_byte>>>> buffer(batchpir_params_.query_size[0]);
+        for (int i = 0; i < batchpir_params_.query_size[0]; i++) {
+            buffer[i].resize(batchpir_params_.query_size[1]);
+            for (int j = 0; j < batchpir_params_.query_size[1]; j++) {
+                buffer[i][j].resize(batchpir_params_.query_size[2]);
+                for (int k = 0; k < batchpir_params_.query_size[2]; k++) {
+                    auto& ct = queries[i][j][k];
                     size_t save_size = ct.save_size();
                     buffer[i][j][k].resize(save_size);
                     auto actual_size = ct.save(buffer[i][j][k].data(), save_size);
@@ -49,13 +47,12 @@ public:
     }
     
     inline vector<PIRResponseList> deserialize_response(vector<vector<vector<seal_byte>>> responses_buffer) {
-        vector<PIRResponseList> responses(responses_buffer.size());
-        for (int i = 0; i < responses_buffer.size(); i++) {
-            auto& response_buffer = responses_buffer[i];
-            responses[i].resize(response_buffer.size());
-            for (int j = 0; j < response_buffer.size(); j++) {
-                responses[i][j].load(*context_, response_buffer[j].data(), response_buffer[j].size());
-                serialized_comm_size_ += response_buffer[j].size();
+        vector<PIRResponseList> responses(batchpir_params_.response_size[0]);
+        for (int i = 0; i < batchpir_params_.response_size[0]; i++) {
+            responses[i].resize(batchpir_params_.response_size[1]);
+            for (int j = 0; j < batchpir_params_.response_size[1]; j++) {
+                responses[i][j].load(*context_, responses_buffer[i][j].data(), responses_buffer[i][j].size());
+                serialized_comm_size_ += responses_buffer[i][j].size();
             }
         }
         return responses;

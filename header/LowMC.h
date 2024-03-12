@@ -27,12 +27,13 @@ public:
     LowMC (keyblock k = 0) {
         key = k;
         instantiate_LowMC();
-        keyschedule();   
+        keyschedule();
     };
 
     block encrypt (const block message);
     block decrypt (const block message);
     void set_key (keyblock k);
+    const keyblock get_key () {return key;}
 
     void print_matrices();
     

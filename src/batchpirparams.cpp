@@ -18,6 +18,15 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
     seal_params_ = utils::create_encryption_parameters(selection);
     if (type_ == UIUC) {
         set_first_dimension_size();
+        size_t dim_size = get_first_dimension_size();
+        auto max_slots = seal_params_.poly_modulus_degree();
+        size_t per_server_capacity = max_slots / dim_size;
+        size_t num_servers = ceil(get_num_buckets() / per_server_capacity);
+        query_size = {size_t(num_hash_funcs_), num_servers, 3};
+        // response_size = {size_t(num_hash_funcs_),  get_bucket_size()};
+    } else {
+        query_size = {size_t(num_hash_funcs_), 1, DatabaseConstants::PIRANA_m};
+        response_size = {size_t(num_hash_funcs_),  get_num_slots_per_entry()};
     }
 
 }

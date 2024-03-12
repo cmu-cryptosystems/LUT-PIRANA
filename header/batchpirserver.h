@@ -34,15 +34,13 @@ public:
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;
 
     inline vector<vector<PIRQuery>> deserialize_query(vector<vector<vector<vector<seal_byte>>>> queries_buffer) {
-        vector<vector<PIRQuery>> queries(queries_buffer.size());
-        for (int i = 0; i < queries_buffer.size(); i++) {
-            auto& query_list_buffer = queries_buffer[i];
-            queries[i].resize(query_list_buffer.size());
-            for (int j = 0; j < query_list_buffer.size(); j++) {
-                auto& query_buffer = query_list_buffer[j];
-                queries[i][j].resize(query_buffer.size());
-                for (int k = 0; k < query_buffer.size(); k++) {
-                    queries[i][j][k].load(*context_, query_buffer[k].data(), query_buffer[k].size());
+        vector<vector<PIRQuery>> queries(batchpir_params_->query_size[0]);
+        for (int i = 0; i < batchpir_params_->query_size[0]; i++) {
+            queries[i].resize(batchpir_params_->query_size[1]);
+            for (int j = 0; j < batchpir_params_->query_size[1]; j++) {
+                queries[i][j].resize(batchpir_params_->query_size[2]);
+                for (int k = 0; k < batchpir_params_->query_size[2]; k++) {
+                    queries[i][j][k].load(*context_, queries_buffer[i][j][k].data(), queries_buffer[i][j][k].size());
                 }
             }
         }
@@ -50,12 +48,11 @@ public:
     }
     
     inline auto serialize_response(vector<PIRResponseList> responses) {
-        vector<vector<vector<seal_byte>>> buffer(responses.size());
-        for (int i = 0; i < responses.size(); i++) {
-            auto& response = responses[i];
-            buffer[i].resize(response.size());
-            for (int j = 0; j < response.size(); j++) {
-                auto& ct = response[j];
+        vector<vector<vector<seal_byte>>> buffer(batchpir_params_->response_size[0]);
+        for (int i = 0; i < batchpir_params_->response_size[0]; i++) {
+            buffer[i].resize(batchpir_params_->response_size[1]);
+            for (int j = 0; j < batchpir_params_->response_size[1]; j++) {
+                auto& ct = responses[i][j];
                 size_t save_size = ct.save_size();
                 buffer[i][j].resize(save_size);
                 auto actual_size = ct.save(buffer[i][j].data(), save_size);

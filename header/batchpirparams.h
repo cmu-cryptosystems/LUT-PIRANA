@@ -29,6 +29,7 @@ public:
 
     void set_first_dimension_size();
     void print_params() const;
+    std::vector<size_t> query_size, response_size;
 
 private:
     int num_hash_funcs_ = 0;
