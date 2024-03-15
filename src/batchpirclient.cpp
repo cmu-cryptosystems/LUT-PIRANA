@@ -122,6 +122,7 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
         utils::cuckoo_insert(key, 0, key_to_buckets, cuckoo_map);
     }
     
+    inv_cuckoo_map.resize(batch_size);
     bucket_to_position.resize(total_buckets, vector<uint64_t>(w, batchpir_params_.get_default_value()));
     for (auto const &[bucket, key] : cuckoo_map)
     {

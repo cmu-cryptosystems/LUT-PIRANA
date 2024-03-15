@@ -24,7 +24,7 @@ public:
     // bucket index to query index
     std::unordered_map<uint64_t, uint64_t> cuckoo_map;
     // query index to bucket index
-    std::unordered_map<uint64_t, uint64_t> inv_cuckoo_map;;
+    std::vector<uint64_t> inv_cuckoo_map;
 
     // serialization support
     inline auto serialize_query(vector<vector<PIRQuery>> queries) {
