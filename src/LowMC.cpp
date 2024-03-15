@@ -167,10 +167,10 @@ void LowMC::keyschedule () {
 void LowMC::instantiate_LowMC () {
     // Create LinMatrices and invLinMatrices
     LinMatrices.clear();
-    invLinMatrices.clear();
+    // invLinMatrices.clear();
     LinMatrices.resize(rounds);
-    invLinMatrices.resize(rounds);
-    #pragma omp parallel for if(DatabaseConstants::parallel)
+    // invLinMatrices.resize(rounds);
+    // #pragma omp parallel for if(DatabaseConstants::parallel)
     for (unsigned r = 0; r < rounds; ++r) {
         // Create matrix
         std::vector<block> mat;
@@ -195,7 +195,7 @@ void LowMC::instantiate_LowMC () {
     // Create KeyMatrices
     KeyMatrices.clear();
     KeyMatrices.resize(rounds+1);
-    #pragma omp parallel for if(DatabaseConstants::parallel)
+    // #pragma omp parallel for if(DatabaseConstants::parallel)
     for (unsigned r = 0; r <= rounds; ++r) {
         // Create matrix
         std::vector<keyblock> mat;
