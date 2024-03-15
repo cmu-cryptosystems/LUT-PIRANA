@@ -3,19 +3,17 @@
 #include "LowMC.h"
 #include "utils.h"
 
-using namespace utils;
-
 BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size)
     : num_hash_funcs_(DatabaseConstants::NumHashFunctions),
       batch_size_(batch_size),
       cuckoo_factor_(DatabaseConstants::CuckooFactor),
       cuckoo_factor_bucket_(DatabaseConstants::CuckooFactorBucket),
       num_entries_(num_entries),
-      entry_size_(datablock_size),
+      entry_size_(utils::datablock_size),
       max_attempts_(DatabaseConstants::MaxAttempts),
       type_(DatabaseConstants::type){
 
-    string selection = std::to_string(batch_size) + "," + std::to_string(num_entries) + "," + std::to_string(entry_size);
+    std::string selection = std::to_string(batch_size) + "," + std::to_string(num_entries) + "," + std::to_string(entry_size);
     seal_params_ = utils::create_encryption_parameters(selection);
     if (type_ == UIUC) {
         set_first_dimension_size();

@@ -4,7 +4,7 @@
 using namespace seal;
 
 PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions = 0) : num_entries_(num_entries),
-                                                                                                                entry_size_(datablock_size),
+                                                                                                                entry_size_(utils::datablock_size),
                                                                                                                 db_count_(db_count)
 {
 
@@ -22,7 +22,7 @@ PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParame
     }
 
     // calculate number of columns per entry
-    calculate_num_slots_per_entry(datablock_size);
+    calculate_num_slots_per_entry(utils::datablock_size);
 
     // round the number of entries should be called after dimensions are calculated
     calculate_rounded_db_size();

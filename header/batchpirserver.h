@@ -28,7 +28,7 @@ public:
     void initialize();
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset<DatabaseConstants::OutputLength>(); });
    
-    std::vector<LowMC> ciphers;
+    std::vector<utils::LowMC> ciphers;
     std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> index_masks, entry_masks;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_buckets_array;
     std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;

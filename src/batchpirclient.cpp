@@ -200,7 +200,7 @@ void BatchPIRClient::prepare_pir_clients()
 }
 
 // return 1..w, 1..B
-vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses)
+vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses)
 {
     auto plaint_bit_count_ = batchpir_params_.get_seal_parameters().plain_modulus().bit_count();
     size_t w = batchpir_params_.get_num_hash_funcs();
@@ -217,7 +217,7 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets / per_server_capacity);
 
-    vector<EncodedDB> entries_list(num_buckets, EncodedDB(w));
+    vector<utils::EncodedDB> entries_list(num_buckets, utils::EncodedDB(w));
     for (int hash_idx = 0; hash_idx < w; hash_idx++)
     {
         auto& response = responses[hash_idx];
@@ -227,20 +227,20 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++)
             {
                 size_t start = slot_idx * size_of_coeff;
-                size_t end = std::min((slot_idx + 1) * size_of_coeff, (int)datablock_size);
+                size_t end = std::min((slot_idx + 1) * size_of_coeff, (int)utils::datablock_size);
                 vector<uint64_t> plain_entry(num_buckets);
                 Plaintext pt;
                 decryptor_->decrypt(response[slot_idx], pt);
                 batch_encoder_->decode(pt, plain_entry);
                 for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                     size_t subbucket_idx = bucket_to_position[bucket_idx][hash_idx] / subbucket_size;
-                    str_entries[bucket_idx] += datablock(plain_entry[bucket_idx * num_subbucket + subbucket_idx]).to_string().substr(datablock_size-(end - start));
+                    str_entries[bucket_idx] += utils::datablock(plain_entry[bucket_idx * num_subbucket + subbucket_idx]).to_string().substr(utils::datablock_size-(end - start));
                 }
             }
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                 if (cuckoo_map.count(bucket_idx)) {
-                    utils::check (str_entries[bucket_idx].size() == datablock_size);
-                    entries_list[bucket_idx][hash_idx] = datablock(str_entries[bucket_idx]);
+                    utils::check (str_entries[bucket_idx].size() == utils::datablock_size);
+                    entries_list[bucket_idx][hash_idx] = utils::datablock(str_entries[bucket_idx]);
                 }
             }
         } else {
@@ -253,7 +253,7 @@ vector<EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> respo
             auto current_fill = gap * num_slots_per_entry_rounded;
             size_t num_buckets_merged = (row_size / current_fill);
             size_t num_chunk_ctx = ceil((num_slots_per_entry * 1.0) / max_empty_slots);
-            RawResponses all_entries;
+            utils::RawResponses all_entries;
 
             if (ceil(num_slots_per_entry * 1.0 / max_empty_slots) > 1 || num_buckets_merged <= 1 || client_list_.size() == 1) {
                 for (int i = 0; i < client_list_.size(); i++) {

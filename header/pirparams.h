@@ -6,11 +6,9 @@
 #include <vector>
 #include "database_constants.h"
 #include "seal/seal.h"
-#include "utils.h"
 
 
 using namespace std;
-using namespace utils;
 
 class PirParams {
 public:

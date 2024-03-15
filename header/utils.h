@@ -14,16 +14,16 @@
 #include "database_constants.h"
 #include "seal/seal.h"
 
-namespace utils {
-
 typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
 typedef  std::vector<seal::Ciphertext> PIRResponseList;
+typedef  std::vector<uint64_t> Row;
+typedef  std::vector<Row> PirDB;
+namespace utils {
+
 typedef  std::vector<rawdatablock>  RawDB;
 typedef  std::vector<std::bitset<datablock_size>>  EncodedDB;
 typedef  std::vector<std::bitset<datablock_size>>  RawResponses;
-typedef  std::vector<uint64_t> Row;
-typedef  std::vector<Row> PirDB;
 using namespace std;
 using namespace seal;
 

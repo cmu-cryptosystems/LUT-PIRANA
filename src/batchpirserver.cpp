@@ -66,7 +66,7 @@ void BatchPIRServer::initialize_masks() {
     }
 }
 
-inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket_size, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position, std::vector<LowMC>& ciphers) {
+inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket_size, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position, std::vector<utils::LowMC>& ciphers) {
     rawdatablock d(data);
     std::vector<string> ciphertexts;
     for (auto& cipher: ciphers) {
@@ -84,7 +84,7 @@ void BatchPIRServer::lowmc_prepare() {
     auto bucket_size = ceil(batchpir_params_->get_cuckoo_factor_bucket() * num_candidates * db_entries / total_buckets); 
 
     for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
-        ciphers.emplace_back(LowMC(random_bitset<keysize>()));
+        ciphers.emplace_back(utils::LowMC(random_bitset<keysize>()));
     }
     check(num_candidates == ciphers.size());
 

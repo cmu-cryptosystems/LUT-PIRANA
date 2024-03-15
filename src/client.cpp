@@ -65,7 +65,7 @@ seal::KeyGenerator *Client::get_keygen()
     return keygen_;
 }
 
-std::pair<vector<seal_byte>, vector<seal_byte>>  Client::get_public_keys()
+std::pair<vector<seal::seal_byte>, vector<seal::seal_byte>>  Client::get_public_keys()
 {
     if (gal_keys_.size() == 0 || relin_keys_.size() == 0)
     {
@@ -113,7 +113,7 @@ void Client::check_noise_budget(const seal::Ciphertext& response) {
 }
 
 
-vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, size_t cuckoo_size, vector<vector<uint64_t>> entry_slot_lists)
+vector<utils::RawResponses> Client::decode_merged_responses(PIRResponseList response, size_t cuckoo_size, vector<vector<uint64_t>> entry_slot_lists)
 {
     check_noise_budget(response[0]);
     const size_t num_slots_per_entry = pir_params_.get_num_slots_per_entry();
@@ -172,7 +172,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
     }
 
     remaining_entries = cuckoo_size;
-    vector<EncodedDB> raw_entries_list;
+    vector<utils::EncodedDB> raw_entries_list;
 
     // loop over the pir_entries list in increments of gap_
     for (int i = 0; i < pir_entries.size(); i += (gap_ * 2))
@@ -180,7 +180,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
 
         // pick number of entries left to parse
         int num_queries = min(remaining_entries, gap_ * 2);
-        EncodedDB raw_entries(num_queries);
+        utils::EncodedDB raw_entries(num_queries);
 
         for (int j = 0; j < num_queries; j++)
         {
@@ -228,7 +228,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
 //         }
 //     }
     
-//     EncodedDB raw_entries(num_queries);
+//     utils::EncodedDB raw_entries(num_queries);
 //     for(int j = 0; j < num_queries; j++){
 //         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
 //     }
@@ -236,7 +236,7 @@ vector<RawResponses> Client::decode_merged_responses(PIRResponseList response, s
 //     return raw_entries;
 // }
 
-RawResponses Client::decode_responses(PIRResponseList response)
+utils::RawResponses Client::decode_responses(PIRResponseList response)
 {
     check_noise_budget(response[0]);
 
@@ -281,7 +281,7 @@ RawResponses Client::decode_responses(PIRResponseList response)
         remaining_slots_entry -= max_empty_slots;
     }
 
-    EncodedDB raw_entries(num_queries);
+    utils::EncodedDB raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -290,7 +290,7 @@ RawResponses Client::decode_responses(PIRResponseList response)
     return raw_entries;
 }
 
-RawResponses Client::decode_responses_chunks(PIRResponseList response)
+utils::RawResponses Client::decode_responses_chunks(PIRResponseList response)
 {
     check_noise_budget(response[0]);
 
@@ -330,7 +330,7 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
         }
     }
 
-    EncodedDB raw_entries(num_queries);
+    utils::EncodedDB raw_entries(num_queries);
     for (int j = 0; j < num_queries; j++)
     {
         raw_entries[j] = convert_to_rawdb_entry(pir_entries[j]);
@@ -339,7 +339,7 @@ RawResponses Client::decode_responses_chunks(PIRResponseList response)
     return raw_entries;
 }
 
-datablock Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
+utils::datablock Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
 {
     auto size_of_input = input_list.size();
     const int size_of_coeff = plaint_bit_count_ - 1;
@@ -348,11 +348,11 @@ datablock Client::convert_to_rawdb_entry(std::vector<uint64_t> input_list)
 
     for (unsigned out_idx = 0; out_idx < cols; out_idx++) {
         size_t start = out_idx * size_of_coeff;
-        size_t end = std::min((out_idx + 1) * size_of_coeff, (unsigned)datablock_size);
-        bit_str += datablock(input_list[out_idx]).to_string().substr(datablock_size-(end - start));
+        size_t end = std::min((out_idx + 1) * size_of_coeff, (unsigned)utils::datablock_size);
+        bit_str += utils::datablock(input_list[out_idx]).to_string().substr(utils::datablock_size-(end - start));
     }
 
-    return datablock(bit_str);
+    return utils::datablock(bit_str);
 }
 
 PIRQuery Client::gen_query(vector<uint64_t> indices)
