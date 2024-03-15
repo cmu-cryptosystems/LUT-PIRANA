@@ -5,6 +5,7 @@
 #include "LowMC.h"
 #include "utils.h"
 
+namespace utils {
 
 /////////////////////////////
 //     LowMC functions     //
@@ -390,5 +391,6 @@ bool LowMC::getrandbit () {
     return tmp;
 }
 
+} // namespace utils
 
 

@@ -3,6 +3,7 @@
 #include "LowMC.h"
 #include "utils.h"
 
+using namespace utils;
 
 BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size)
     : num_hash_funcs_(DatabaseConstants::NumHashFunctions),

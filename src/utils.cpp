@@ -1,6 +1,6 @@
 #include "utils.h"
 
-using namespace chrono;
+using namespace std::chrono;
 
 namespace utils {
     std::map<string, time_point<system_clock, nanoseconds>> start_timestamps;

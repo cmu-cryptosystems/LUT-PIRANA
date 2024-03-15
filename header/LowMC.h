@@ -5,6 +5,8 @@
 #include <bitset>
 #include <vector>
 
+namespace utils {
+
 const unsigned numofboxes = 1;    // Number of Sboxes
 const unsigned blocksize = 64;   // Block size in bits
 const unsigned keysize = 128; // Key size in bits
@@ -90,5 +92,6 @@ private:
     bool  getrandbit ();
 
 };
+} // namespace utils
 
 #endif

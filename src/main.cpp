@@ -96,7 +96,7 @@ int batchpir_main(int argc, char* argv[])
     cout << "Main: Starting response generation for example " << (iteration + 1) << "..." << endl;
     start = chrono::high_resolution_clock::now();
     auto queries_deserialized = batch_server.deserialize_query(query_buffer);
-    vector<PIRResponseList> responses = batch_server.generate_response(client_id, queries);
+    vector<PIRResponseList> responses = batch_server.generate_response(client_id, queries_deserialized);
     auto response_buffer = batch_server.serialize_response(responses);
     end = chrono::high_resolution_clock::now();
     auto duration_respgen = chrono::duration_cast<chrono::milliseconds>(end - start);
@@ -106,7 +106,7 @@ int batchpir_main(int argc, char* argv[])
     cout << "Main: Checking decoded entries for example " << (iteration + 1) << "..." << endl;
     timing_start("Decoding");
     auto responses_deserialized = batch_client.deserialize_response(response_buffer);
-    auto decode_responses = batch_client.decode_responses(responses);
+    auto decode_responses = batch_client.decode_responses(responses_deserialized);
     timing_end("Decoding");
 
     communication_list.push_back(batch_client.get_serialized_commm_size());

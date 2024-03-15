@@ -14,6 +14,7 @@
 #include "database_constants.h"
 #include "seal/seal.h"
 
+namespace utils {
 
 typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
@@ -26,7 +27,6 @@ typedef  std::vector<Row> PirDB;
 using namespace std;
 using namespace seal;
 
-namespace utils {
 
     // Returns the next power of 2 for a given number
     inline size_t next_power_of_two(size_t n) {
