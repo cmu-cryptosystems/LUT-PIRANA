@@ -19,6 +19,7 @@ namespace DatabaseConstants {
     constexpr double CuckooFactor = 1.2;
     constexpr double CuckooFactorBucket = 1.4;
     constexpr int OutputLength = 16;
+    constexpr int InputLength = OutputLength + 1;
     constexpr int BucketHashLength = 32;
     constexpr double FirstDimension = 32;
     constexpr bool parallel = true;

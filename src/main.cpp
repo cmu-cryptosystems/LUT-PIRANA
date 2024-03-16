@@ -69,11 +69,11 @@ int batchpir_main(int argc, char* argv[])
     init_times.push_back(duration_init);
 
     // preparing queries
-    vector<rawdatablock> plain_queries(choice[0]);
+    vector<rawinputblock> plain_queries(choice[0]);
     vector<vector<string>> batch(choice[0]);
     for (int i = 0; i < choice[0]; i++)
     {
-        plain_queries[i] = rawdatablock(i);
+        plain_queries[i] = rawinputblock(choice[1] - (choice[0] / 2) + i);
         for (auto& cipher: batch_server.ciphers) {
             auto message = utils::concatenate(cipher.prefix, plain_queries[i]);
             auto ciphertext = cipher.encrypt(message).to_string();

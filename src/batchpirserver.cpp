@@ -58,7 +58,7 @@ void BatchPIRServer::initialize_masks() {
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         index_masks[hash_idx].resize(total_buckets);
         for (auto &r: index_masks[hash_idx])
-            r = utils::random_bitset<DatabaseConstants::OutputLength>();
+            r = utils::random_bitset<DatabaseConstants::InputLength>();
         
         entry_masks[hash_idx].resize(total_buckets);
         for (auto &r: entry_masks[hash_idx])
@@ -67,7 +67,7 @@ void BatchPIRServer::initialize_masks() {
 }
 
 inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket_size, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position, std::vector<utils::LowMC>& ciphers) {
-    rawdatablock d(data);
+    rawinputblock d(data);
     std::vector<string> ciphertexts;
     for (auto& cipher: ciphers) {
         auto message = concatenate(cipher.prefix, d);
@@ -87,6 +87,9 @@ void BatchPIRServer::lowmc_prepare() {
         ciphers.emplace_back(utils::LowMC(random_bitset<keysize>()));
     }
     check(num_candidates == ciphers.size());
+
+    candidate_buckets_array.resize(db_entries);
+    candidate_positions_array.resize(db_entries);
 
     #pragma omp parallel for if(DatabaseConstants::parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
@@ -132,7 +135,7 @@ void BatchPIRServer::lowmc_encrypt() {
     for(size_t b = 0; b < total_buckets; b++) {
         for (auto const &[pos, idx] : position_to_key[b]) {
             for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-                buckets_[hash_idx][b][pos] = concatenate(rawdatablock(idx) ^ index_masks[hash_idx][b], rawdb_[idx] ^ entry_masks[hash_idx][b]);
+                buckets_[hash_idx][b][pos] = concatenate(rawinputblock(idx) ^ index_masks[hash_idx][b], rawdb_[idx] ^ entry_masks[hash_idx][b]);
             }
         }
     }
@@ -331,22 +334,24 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     return response;
 }
 
-bool BatchPIRServer::check_decoded_entries(vector<EncodedDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map)
+bool BatchPIRServer::check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map)
 {
     size_t w = batchpir_params_->get_num_hash_funcs();
     for (auto const &[bucket, original_index] : cuckoo_map) {
+        if (queries[original_index].to_ullong() >= batchpir_params_->get_num_entries())
+            continue;
         bool flag = false;
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-            const auto pos = candidate_positions_array[original_index][hash_idx];
-            auto [index, entry] = utils::split<DatabaseConstants::OutputLength>(entries_list[bucket][hash_idx]);
-            utils::check(entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos]);
+            const auto pos = candidate_positions_array[queries[original_index].to_ullong()][hash_idx];
+            auto [index, entry] = utils::split<DatabaseConstants::InputLength>(entries_list[bucket][hash_idx]);
+            utils::check(entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos], fmt::format("Decode problem. {} != {}", entries_list[bucket][hash_idx].to_string(), buckets_[hash_idx][bucket][pos].to_string()));
             auto idx = index ^ index_masks[hash_idx][bucket];
             auto data = entry ^ entry_masks[hash_idx][bucket];
             if (idx == queries[original_index] && data == rawdb_[queries[original_index].to_ullong()]) {
                 flag = true;
             }
         }
-        utils::check(flag);
+        utils::check(flag, "Multiple match. ");
     }
 
     return true;

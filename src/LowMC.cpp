@@ -210,7 +210,7 @@ void LowMC::instantiate_LowMC () {
         KeyMatrices[r] = mat;
     }
 
-    prefix = utils::random_bitset<blocksize-DatabaseConstants::OutputLength>();
+    prefix = utils::random_bitset<prefixsize>();
     
     return;
 }

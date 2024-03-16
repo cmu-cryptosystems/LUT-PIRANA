@@ -23,15 +23,16 @@ public:
     void set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys);
     void get_client_keys();
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
-    bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawdatablock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
+    bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset<DatabaseConstants::OutputLength>(); });
    
     std::vector<utils::LowMC> ciphers;
-    std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> index_masks, entry_masks;
-    std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_buckets_array;
-    std::array<std::vector<size_t>, 1 << DatabaseConstants::OutputLength> candidate_positions_array;
+    std::array<std::vector<rawinputblock>, DatabaseConstants::NumHashFunctions> index_masks;
+    std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> entry_masks;
+    std::vector<std::vector<size_t>> candidate_buckets_array;
+    std::vector<std::vector<size_t>> candidate_positions_array;
 
     inline vector<vector<PIRQuery>> deserialize_query(vector<vector<vector<vector<seal_byte>>>> queries_buffer) {
         vector<vector<PIRQuery>> queries(batchpir_params_->query_size[0]);
