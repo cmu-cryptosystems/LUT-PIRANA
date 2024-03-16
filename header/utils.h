@@ -178,7 +178,7 @@ using namespace seal;
         product_acum = product_acum + static_cast<__uint128_t>(op1) * static_cast<__uint128_t>(op2); 
     }
 
-    inline seal::EncryptionParameters create_encryption_parameters(string selection = "")
+    inline seal::EncryptionParameters create_encryption_parameters(string selection = "", bool verbose = false)
     {
         seal::EncryptionParameters seal_params(seal::scheme_type::bfv);
 
@@ -202,28 +202,26 @@ using namespace seal;
         seal_params.set_coeff_modulus(CoeffModulus::Create(PolyDegree, CoeffMods));
         seal_params.set_plain_modulus(PlainModulus::Batching(PolyDegree, PlaintextModBitss));
 
+        if (verbose) {
+            std::cout << "+---------------------------------------------------+" << std::endl;
+            std::cout << "|               ENCRYPTION PARAMETERS               |" << std::endl;
+            std::cout << "+---------------------------------------------------+" << std::endl;
+            std::cout << "|  seal_params_.poly_modulus_degree  = " << seal_params.poly_modulus_degree() << std::endl;
 
-std::cout << "+---------------------------------------------------+" << std::endl;
-std::cout << "|               ENCRYPTION PARAMETERS               |" << std::endl;
-std::cout << "+---------------------------------------------------+" << std::endl;
-std::cout << "|  seal_params_.poly_modulus_degree  = " << seal_params.poly_modulus_degree() << std::endl;
+            auto coeff_modulus_size = seal_params.coeff_modulus().size();
+            std::cout << "|  seal_params_.coeff_modulus().bit_count   = [";
 
-auto coeff_modulus_size = seal_params.coeff_modulus().size();
-std::cout << "|  seal_params_.coeff_modulus().bit_count   = [";
+            for (std::size_t i = 0; i < coeff_modulus_size - 1; i++)
+            {
+                std::cout << seal_params.coeff_modulus()[i].bit_count() << " + ";
+            }
 
-for (std::size_t i = 0; i < coeff_modulus_size - 1; i++)
-{
-    std::cout << seal_params.coeff_modulus()[i].bit_count() << " + ";
-}
-
-std::cout << seal_params.coeff_modulus().back().bit_count();
-std::cout << "] bits" << std::endl;
-std::cout << "|  seal_params_.coeff_modulus().size = " << seal_params.coeff_modulus().size() << std::endl;
-std::cout << "|  seal_params_.plain_modulus().bit_count = " << seal_params.plain_modulus().bit_count() << std::endl;
-std::cout << "+---------------------------------------------------+" << std::endl;
-
-
-
+            std::cout << seal_params.coeff_modulus().back().bit_count();
+            std::cout << "] bits" << std::endl;
+            std::cout << "|  seal_params_.coeff_modulus().size = " << seal_params.coeff_modulus().size() << std::endl;
+            std::cout << "|  seal_params_.plain_modulus().bit_count = " << seal_params.plain_modulus().bit_count() << std::endl;
+            std::cout << "+---------------------------------------------------+" << std::endl;
+        }
     return seal_params;
     }
 
