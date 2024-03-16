@@ -11,7 +11,6 @@ enum BatchPirType {
 
 namespace DatabaseConstants {
 
-    constexpr BatchPirType type = PIRANA;
     constexpr int PolyDegree = 8192;
     constexpr int PlaintextModBitss = 22;
     constexpr int MaxAttempts = 500;
@@ -22,10 +21,6 @@ namespace DatabaseConstants {
     constexpr int InputLength = OutputLength + 1;
     constexpr int BucketHashLength = 32;
     constexpr double FirstDimension = 32;
-    constexpr bool parallel = true;
-    constexpr uint64_t DefaultVal = type == PIRANA ? 1 : std::numeric_limits<uint64_t>().max();
-    constexpr uint64_t PIRANA_m = 9;
-    constexpr uint64_t PIRANA_k = 2;
 
 }
 

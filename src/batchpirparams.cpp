@@ -3,7 +3,7 @@
 #include "LowMC.h"
 #include "utils.h"
 
-BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size)
+BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size, bool parallel, BatchPirType type, uint64_t pirana_m, uint64_t pirana_k)
     : num_hash_funcs_(DatabaseConstants::NumHashFunctions),
       batch_size_(batch_size),
       cuckoo_factor_(DatabaseConstants::CuckooFactor),
@@ -11,7 +11,10 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
       num_entries_(num_entries),
       entry_size_(utils::datablock_size),
       max_attempts_(DatabaseConstants::MaxAttempts),
-      type_(DatabaseConstants::type){
+      parallel(parallel),
+      type_(type), 
+      PIRANA_m(pirana_m), 
+      PIRANA_k(pirana_k) {
 
     std::string selection = std::to_string(batch_size) + "," + std::to_string(num_entries) + "," + std::to_string(entry_size);
     seal_params_ = utils::create_encryption_parameters(selection);
@@ -24,9 +27,11 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
         query_size = {size_t(num_hash_funcs_), num_servers, 3};
         // response_size = {size_t(num_hash_funcs_),  get_bucket_size()};
     } else {
-        query_size = {size_t(num_hash_funcs_), 1, DatabaseConstants::PIRANA_m};
+        query_size = {size_t(num_hash_funcs_), 1, pirana_m};
         response_size = {size_t(num_hash_funcs_),  get_num_slots_per_entry()};
     }
+
+    default_value_ = type == PIRANA ? 1 : std::numeric_limits<uint64_t>().max();
 
 }
 

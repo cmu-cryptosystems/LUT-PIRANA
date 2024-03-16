@@ -3,9 +3,7 @@
 #include "utils.h"
 using namespace seal;
 
-PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, size_t first_two_dimensions = 0) : num_entries_(num_entries),
-                                                                                                                entry_size_(utils::datablock_size),
-                                                                                                                db_count_(db_count)
+PirParams::PirParams(size_t num_entries, size_t db_count, seal::EncryptionParameters seal_params, uint64_t default_value, size_t first_two_dimensions = 0) : num_entries_(num_entries), entry_size_(utils::datablock_size), db_count_(db_count), default_value_(default_value)
 {
 
     seal_params_ = seal_params;

@@ -13,7 +13,7 @@ using namespace std;
 
 class BatchPIRClient {
 public:
-    BatchPIRClient(const BatchPirParams& params);
+    BatchPIRClient(BatchPirParams& params);
     vector<vector<PIRQuery>> create_queries(vector<vector<string>> batch);
     vector<utils::EncodedDB> decode_responses(vector<PIRResponseList> responses);
 
@@ -28,12 +28,12 @@ public:
 
     // serialization support
     inline auto serialize_query(vector<vector<PIRQuery>> queries) {
-        vector<vector<vector<vector<seal_byte>>>> buffer(batchpir_params_.query_size[0]);
-        for (int i = 0; i < batchpir_params_.query_size[0]; i++) {
-            buffer[i].resize(batchpir_params_.query_size[1]);
-            for (int j = 0; j < batchpir_params_.query_size[1]; j++) {
-                buffer[i][j].resize(batchpir_params_.query_size[2]);
-                for (int k = 0; k < batchpir_params_.query_size[2]; k++) {
+        vector<vector<vector<vector<seal_byte>>>> buffer(batchpir_params_->query_size[0]);
+        for (int i = 0; i < batchpir_params_->query_size[0]; i++) {
+            buffer[i].resize(batchpir_params_->query_size[1]);
+            for (int j = 0; j < batchpir_params_->query_size[1]; j++) {
+                buffer[i][j].resize(batchpir_params_->query_size[2]);
+                for (int k = 0; k < batchpir_params_->query_size[2]; k++) {
                     auto& ct = queries[i][j][k];
                     size_t save_size = ct.save_size();
                     buffer[i][j][k].resize(save_size);
@@ -47,10 +47,10 @@ public:
     }
     
     inline vector<PIRResponseList> deserialize_response(vector<vector<vector<seal_byte>>> responses_buffer) {
-        vector<PIRResponseList> responses(batchpir_params_.response_size[0]);
-        for (int i = 0; i < batchpir_params_.response_size[0]; i++) {
-            responses[i].resize(batchpir_params_.response_size[1]);
-            for (int j = 0; j < batchpir_params_.response_size[1]; j++) {
+        vector<PIRResponseList> responses(batchpir_params_->response_size[0]);
+        for (int i = 0; i < batchpir_params_->response_size[0]; i++) {
+            responses[i].resize(batchpir_params_->response_size[1]);
+            for (int j = 0; j < batchpir_params_->response_size[1]; j++) {
                 responses[i][j].load(*context_, responses_buffer[i][j].data(), responses_buffer[i][j].size());
                 serialized_comm_size_ += responses_buffer[i][j].size();
             }
@@ -59,7 +59,7 @@ public:
     }
 
 private:
-    BatchPirParams batchpir_params_;
+    BatchPirParams* batchpir_params_;
     size_t max_attempts_;
     bool is_cuckoo_generated_;
     size_t serialized_comm_size_ = 0;

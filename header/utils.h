@@ -148,7 +148,7 @@ using namespace seal;
     void timing_end(string prefix);
 
     uint64_t choose(uint64_t n, uint64_t k);
-    std::vector<uint64_t> get_perfect_constant_weight_codeword(uint64_t __number, uint64_t encoding_size=DatabaseConstants::PIRANA_m, uint64_t hamming_weight=DatabaseConstants::PIRANA_k, bool __verbose=true);
+    std::vector<uint64_t> get_perfect_constant_weight_codeword(uint64_t __number, uint64_t encoding_size, uint64_t hamming_weight, bool __verbose=true);
 
     inline void append_non_collide_output(std::string hash_out, size_t mod, std::vector<size_t>& candidates) {
         for (int split = 0; split < hash_out.size() - 10; split++) {

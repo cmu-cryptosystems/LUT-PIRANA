@@ -210,7 +210,6 @@ void Server::convert_merge_pir_dbs()
     std::cout << "BatchPIRServer: Converting and merging databases. This may take some time..." << std::endl;
 
     // Convert and merge each raw database into uint_64 PIR elements
-    // #pragma omp parallel for if (DatabaseConstants::parallel)
     for (int i = 0; i < num_databases_; i++)
     {
         auto db = convert_to_pir_db(i);

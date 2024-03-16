@@ -82,6 +82,7 @@ void BatchPIRServer::lowmc_prepare() {
     auto num_candidates = batchpir_params_->get_num_hash_funcs();
     auto db_entries = batchpir_params_->get_num_entries();
     auto bucket_size = ceil(batchpir_params_->get_cuckoo_factor_bucket() * num_candidates * db_entries / total_buckets); 
+    bool parallel = batchpir_params_->is_parallel();
 
     for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
         ciphers.emplace_back(utils::LowMC(random_bitset<keysize>()));
@@ -91,7 +92,7 @@ void BatchPIRServer::lowmc_prepare() {
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
-    #pragma omp parallel for if(DatabaseConstants::parallel)
+    #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
         get_candidate_lowmc(i, total_buckets, bucket_size, candidate_buckets_array[i], candidate_positions_array[i], ciphers);
     }
@@ -130,8 +131,9 @@ void BatchPIRServer::lowmc_encrypt() {
     auto db_entries = batchpir_params_->get_num_entries();
     auto bucket_size = batchpir_params_->get_bucket_size();
     size_t w = batchpir_params_->get_num_hash_funcs();
+    bool parallel = batchpir_params_->is_parallel();
     
-    #pragma omp parallel for if(DatabaseConstants::parallel)
+    #pragma omp parallel for if(parallel)
     for(size_t b = 0; b < total_buckets; b++) {
         for (auto const &[pos, idx] : position_to_key[b]) {
             for (int hash_idx = 0; hash_idx < w; hash_idx++) {
@@ -185,13 +187,14 @@ void BatchPIRServer::prepare_pir_server()
     const int size_of_coeff = plaint_bit_count_ - 1;
     auto pid = context_->first_parms_id();
     size_t w = batchpir_params_->get_num_hash_funcs();
+    bool parallel = batchpir_params_->is_parallel();
 
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         if (type == PIRANA) {
             size_t entry_size = batchpir_params_->get_entry_size();
             encoded_columns[hash_idx].resize(subbucket_size, vector<Plaintext>(num_columns_per_entry));
             
-            #pragma omp parallel for if (DatabaseConstants::parallel)
+            #pragma omp parallel for if(parallel)
             for (auto column = 0; column < subbucket_size; column++) {
                 vector<vector<uint64_t>> plain_col(num_columns_per_entry);
                 for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
@@ -214,7 +217,7 @@ void BatchPIRServer::prepare_pir_server()
                 
             }
 
-            #pragma omp parallel for collapse(2) if (DatabaseConstants::parallel)
+            #pragma omp parallel for collapse(2) if(parallel)
             for (int column = 0; column < subbucket_size; column++) {
                 for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                     evaluator_->transform_to_ntt_inplace(encoded_columns[hash_idx][column][slot_idx], pid);
@@ -228,7 +231,7 @@ void BatchPIRServer::prepare_pir_server()
                 vector<EncodedDB> sub_buckets(buckets_[hash_idx].begin() + previous_idx, buckets_[hash_idx].begin() + previous_idx + offset);
                 previous_idx += offset;
 
-                PirParams params(bucket_size, offset, batchpir_params_->get_seal_parameters(), dim_size);
+                PirParams params(bucket_size, offset, batchpir_params_->get_seal_parameters(), batchpir_params_->get_default_value(), dim_size);
                 params.print_values();
                 Server server(params, sub_buckets);
 
@@ -272,8 +275,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     size_t bucket_size = batchpir_params_->get_bucket_size();
     size_t num_subbucket = polynomial_degree_ / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
-    const size_t m = DatabaseConstants::PIRANA_m;
-    const size_t k = DatabaseConstants::PIRANA_k;
+    const auto [m, k] = batchpir_params_->get_PIRANA_params();
     size_t w = batchpir_params_->get_num_hash_funcs();
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     auto type = batchpir_params_->get_type();
@@ -281,6 +283,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets / per_server_capacity);
+    bool parallel = batchpir_params_->is_parallel();
 
     vector<PIRResponseList> response(w);
 
@@ -290,9 +293,9 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
             masked_value.resize(num_columns_per_entry, PIRResponseList(subbucket_size));
             response[hash_idx].resize(num_columns_per_entry);
 
-            #pragma omp parallel for if(DatabaseConstants::parallel)
+            #pragma omp parallel for if(parallel)
             for (int column=0; column < subbucket_size; column++) {
-                auto code = utils::get_perfect_constant_weight_codeword(column);
+                auto code = utils::get_perfect_constant_weight_codeword(column, m, k);
                 utils::check(code.size() == m);
                 vector<Ciphertext> c_to_mul;
                 for (int code_idx = 0; code_idx < m; code_idx++) {

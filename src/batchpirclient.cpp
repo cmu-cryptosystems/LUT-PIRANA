@@ -6,10 +6,11 @@
 #include <stdexcept>
 #include <sys/types.h>
 
-BatchPIRClient::BatchPIRClient(const BatchPirParams &params)
-    : batchpir_params_(params), is_cuckoo_generated_(false)
+BatchPIRClient::BatchPIRClient(BatchPirParams &params)
+    : is_cuckoo_generated_(false)
 {
-    max_attempts_ = batchpir_params_.get_max_attempts();
+    batchpir_params_ = &params;
+    max_attempts_ = batchpir_params_->get_max_attempts();
 
     prepare_pir_clients();
 }
@@ -17,24 +18,22 @@ BatchPIRClient::BatchPIRClient(const BatchPirParams &params)
 vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> batch)
 {
 
-    if (batch.size() != batchpir_params_.get_batch_size())
+    if (batch.size() != batchpir_params_->get_batch_size())
         throw std::runtime_error("Error: batch is not selected size");
 
     cuckoo_hash(batch);
+    cout << "cuckoo complete" << endl;
 
-    size_t batch_size = batchpir_params_.get_batch_size();
-    size_t bucket_size = batchpir_params_.get_bucket_size();
-    size_t w = batchpir_params_.get_num_hash_funcs();
-    auto max_slots = batchpir_params_.get_seal_parameters().poly_modulus_degree();
-    auto num_buckets = batchpir_params_.get_num_buckets();
+    size_t batch_size = batchpir_params_->get_batch_size();
+    size_t bucket_size = batchpir_params_->get_bucket_size();
+    size_t w = batchpir_params_->get_num_hash_funcs();
+    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+    auto num_buckets = batchpir_params_->get_num_buckets();
     size_t num_subbucket = DatabaseConstants::PolyDegree / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
-    size_t dim_size = batchpir_params_.get_first_dimension_size();
-    size_t per_server_capacity = max_slots / dim_size;
-    size_t num_servers = ceil(num_buckets / per_server_capacity);
-    auto type = batchpir_params_.get_type();
-
-    const size_t m = DatabaseConstants::PIRANA_m;
+    auto default_value = batchpir_params_->get_default_value();
+    auto type = batchpir_params_->get_type();
+    const auto [m, k] = batchpir_params_->get_PIRANA_params();
     
     Plaintext pt;
     Ciphertext ct;
@@ -53,7 +52,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
             {
                 size_t subbucket_idx = bucket_to_position[bucket_idx][hash_idx] / subbucket_size;
                 size_t offset = bucket_to_position[bucket_idx][hash_idx] % subbucket_size;
-                codes[bucket_idx] = utils::get_perfect_constant_weight_codeword(offset, m, DatabaseConstants::PIRANA_k);
+                codes[bucket_idx] = utils::get_perfect_constant_weight_codeword(offset, m, k);
                 for (int code_dim = 0; code_dim < m; code_dim++) {
                     q[code_dim][bucket_idx*num_subbucket + subbucket_idx] = codes[bucket_idx][code_dim];
                 }
@@ -65,12 +64,15 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
             }
 
         } else {
+            size_t dim_size = batchpir_params_->get_first_dimension_size();
+            size_t per_server_capacity = max_slots / dim_size;
+
             vector<PIRQuery> qs;
             auto previous_idx = 0;
             for (int i = 0; i < client_list_.size(); i++)
             {
                 const size_t offset = std::min(per_server_capacity, num_buckets - previous_idx);
-                vector<uint64_t> sub_buckets(offset, DatabaseConstants::DefaultVal);
+                vector<uint64_t> sub_buckets(offset, default_value);
                 for (int bucket_idx = 0; bucket_idx < offset; bucket_idx++)
                 {
                     sub_buckets[bucket_idx] = bucket_to_position[previous_idx + bucket_idx][hash_idx];
@@ -91,13 +93,13 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
 bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
 {
 
-    size_t total_buckets = batchpir_params_.get_num_buckets();
-    auto db_entries = batchpir_params_.get_num_entries();
-    auto num_candidates = batchpir_params_.get_num_hash_funcs();
-    size_t bucket_size = batchpir_params_.get_bucket_size();
-    auto attempts = batchpir_params_.get_max_attempts();
-    auto batch_size = batchpir_params_.get_batch_size();
-    size_t w = batchpir_params_.get_num_hash_funcs();
+    size_t total_buckets = batchpir_params_->get_num_buckets();
+    auto db_entries = batchpir_params_->get_num_entries();
+    auto num_candidates = batchpir_params_->get_num_hash_funcs();
+    size_t bucket_size = batchpir_params_->get_bucket_size();
+    auto attempts = batchpir_params_->get_max_attempts();
+    auto batch_size = batchpir_params_->get_batch_size();
+    size_t w = batchpir_params_->get_num_hash_funcs();
 
     if (batch.size() != batch_size)
     {
@@ -123,7 +125,7 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
     }
     
     inv_cuckoo_map.resize(batch_size);
-    bucket_to_position.resize(total_buckets, vector<uint64_t>(w, batchpir_params_.get_default_value()));
+    bucket_to_position.resize(total_buckets, vector<uint64_t>(w, batchpir_params_->get_default_value()));
     for (auto const &[bucket, key] : cuckoo_map)
     {
         bucket_to_position[bucket] = key_to_position[key];
@@ -149,13 +151,13 @@ size_t BatchPIRClient::get_serialized_commm_size(){
 void BatchPIRClient::prepare_pir_clients()
 {
     
-    context_ = new SEALContext(batchpir_params_.get_seal_parameters());
-    if (batchpir_params_.get_type() == UIUC) {
-        size_t max_bucket_size = batchpir_params_.get_bucket_size();
-        size_t num_hash_funcs = batchpir_params_.get_num_hash_funcs();
-        size_t dim_size = batchpir_params_.get_first_dimension_size();
-        auto max_slots = batchpir_params_.get_seal_parameters().poly_modulus_degree();
-        auto num_buckets = ceil(batchpir_params_.get_batch_size() * batchpir_params_.get_cuckoo_factor());
+    context_ = new SEALContext(batchpir_params_->get_seal_parameters());
+    if (batchpir_params_->get_type() == UIUC) {
+        size_t max_bucket_size = batchpir_params_->get_bucket_size();
+        size_t num_hash_funcs = batchpir_params_->get_num_hash_funcs();
+        size_t dim_size = batchpir_params_->get_first_dimension_size();
+        auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+        auto num_buckets = ceil(batchpir_params_->get_batch_size() * batchpir_params_->get_cuckoo_factor());
         size_t per_client_capacity = max_slots / dim_size;
         size_t num_client = ceil(num_buckets / per_client_capacity);
         auto remaining_buckets = num_buckets;
@@ -166,7 +168,7 @@ void BatchPIRClient::prepare_pir_clients()
         {
             const size_t num_dbs = std::min(per_client_capacity, static_cast<size_t>(num_buckets - previous_idx));
             previous_idx += num_dbs;
-            PirParams params(max_bucket_size, num_dbs, batchpir_params_.get_seal_parameters(), dim_size);
+            PirParams params(max_bucket_size, num_dbs, batchpir_params_->get_seal_parameters(), batchpir_params_->get_default_value(), dim_size);
             if (i == 0)
             {
                 Client client(params);
@@ -203,18 +205,18 @@ void BatchPIRClient::prepare_pir_clients()
 // return 1..w, 1..B
 vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses)
 {
-    auto plaint_bit_count_ = batchpir_params_.get_seal_parameters().plain_modulus().bit_count();
-    size_t w = batchpir_params_.get_num_hash_funcs();
-    const auto num_columns_per_entry = batchpir_params_.get_num_slots_per_entry();
+    auto plaint_bit_count_ = batchpir_params_->get_seal_parameters().plain_modulus().bit_count();
+    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     const int size_of_coeff = plaint_bit_count_ - 1;
-    size_t batch_size = batchpir_params_.get_batch_size();
-    auto num_buckets = batchpir_params_.get_num_buckets();
+    size_t batch_size = batchpir_params_->get_batch_size();
+    auto num_buckets = batchpir_params_->get_num_buckets();
     size_t num_subbucket = DatabaseConstants::PolyDegree / num_buckets;
-    size_t bucket_size = batchpir_params_.get_bucket_size();
+    size_t bucket_size = batchpir_params_->get_bucket_size();
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
-    auto type = batchpir_params_.get_type();
-    size_t dim_size = batchpir_params_.get_first_dimension_size();
-    auto max_slots = batchpir_params_.get_seal_parameters().poly_modulus_degree();
+    auto type = batchpir_params_->get_type();
+    size_t dim_size = batchpir_params_->get_first_dimension_size();
+    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets / per_server_capacity);
 
@@ -246,10 +248,10 @@ vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList
             }
         } else {
 
-            const size_t num_slots_per_entry = batchpir_params_.get_num_slots_per_entry();
+            const size_t num_slots_per_entry = batchpir_params_->get_num_slots_per_entry();
             const size_t num_slots_per_entry_rounded = utils::next_power_of_two(num_slots_per_entry);
-            const size_t max_empty_slots = batchpir_params_.get_first_dimension_size();
-            const size_t row_size = batchpir_params_.get_seal_parameters().poly_modulus_degree() / 2;
+            const size_t max_empty_slots = batchpir_params_->get_first_dimension_size();
+            const size_t row_size = batchpir_params_->get_seal_parameters().poly_modulus_degree() / 2;
             const size_t gap = row_size / max_empty_slots;
             auto current_fill = gap * num_slots_per_entry_rounded;
             size_t num_buckets_merged = (row_size / current_fill);
@@ -289,7 +291,7 @@ vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList
 std::pair<vector<seal_byte>, vector<seal_byte>>  BatchPIRClient::get_public_keys()
 {
     std::pair<vector<seal_byte>, vector<seal_byte>> public_keys;
-    if (batchpir_params_.get_type() == UIUC) {
+    if (batchpir_params_->get_type() == UIUC) {
         public_keys = client_list_[0][0].get_public_keys();
     } else {
         public_keys = std::make_pair(vector<seal_byte>{}, rlk_buffer);
