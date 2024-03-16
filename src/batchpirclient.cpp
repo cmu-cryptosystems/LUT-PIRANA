@@ -22,7 +22,6 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
         throw std::runtime_error("Error: batch is not selected size");
 
     cuckoo_hash(batch);
-    cout << "cuckoo complete" << endl;
 
     size_t batch_size = batchpir_params_->get_batch_size();
     size_t bucket_size = batchpir_params_->get_bucket_size();
