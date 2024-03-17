@@ -22,14 +22,13 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
         throw std::runtime_error("Error: batch is not selected size");
 
     cuckoo_hash(batch);
-    cout << "cuckoo complete" << endl;
 
     size_t batch_size = batchpir_params_->get_batch_size();
     size_t bucket_size = batchpir_params_->get_bucket_size();
     size_t w = batchpir_params_->get_num_hash_funcs();
     auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
     auto num_buckets = batchpir_params_->get_num_buckets();
-    size_t num_subbucket = DatabaseConstants::PolyDegree / num_buckets;
+    size_t num_subbucket = max_slots / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     auto default_value = batchpir_params_->get_default_value();
     auto type = batchpir_params_->get_type();

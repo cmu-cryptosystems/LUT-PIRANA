@@ -10,7 +10,7 @@ using namespace seal;
 
 class BatchPirParams {
 public:
-    BatchPirParams(int batch_size ,size_t num_entries, size_t entry_size, bool parallel = true, BatchPirType type = PIRANA, uint64_t pirana_m = 9, uint64_t pirana_k = 2);
+    BatchPirParams(int batch_size ,size_t num_entries, size_t entry_size, bool parallel = true, BatchPirType type = PIRANA, uint64_t pirana_k = 2);
 
     int get_num_hash_funcs();
     int get_batch_size();

@@ -3,7 +3,7 @@
 #include "LowMC.h"
 #include "utils.h"
 
-BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size, bool parallel, BatchPirType type, uint64_t pirana_m, uint64_t pirana_k)
+BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_size, bool parallel, BatchPirType type, uint64_t pirana_k)
     : num_hash_funcs_(DatabaseConstants::NumHashFunctions),
       batch_size_(batch_size),
       cuckoo_factor_(DatabaseConstants::CuckooFactor),
@@ -12,22 +12,30 @@ BatchPirParams::BatchPirParams(int batch_size, size_t num_entries, size_t entry_
       entry_size_(utils::datablock_size),
       max_attempts_(DatabaseConstants::MaxAttempts),
       parallel(parallel),
-      type_(type), 
-      PIRANA_m(pirana_m), 
+      type_(type),  
       PIRANA_k(pirana_k) {
 
     std::string selection = std::to_string(batch_size) + "," + std::to_string(num_entries) + "," + std::to_string(entry_size);
     seal_params_ = utils::create_encryption_parameters(selection);
+    auto max_slots = seal_params_.poly_modulus_degree();
+    auto num_buckets = get_num_buckets();
+    size_t bucket_size = get_bucket_size();
     if (type_ == UIUC) {
         set_first_dimension_size();
         size_t dim_size = get_first_dimension_size();
-        auto max_slots = seal_params_.poly_modulus_degree();
         size_t per_server_capacity = max_slots / dim_size;
-        size_t num_servers = ceil(get_num_buckets() / per_server_capacity);
+        size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
+        size_t num_chunk_ctx = ceil((get_num_slots_per_entry() * 1.0) / dim_size);
+
         query_size = {size_t(num_hash_funcs_), num_servers, 3};
-        // response_size = {size_t(num_hash_funcs_),  get_bucket_size()};
+        response_size = {size_t(num_hash_funcs_),  num_servers * num_chunk_ctx};
     } else {
-        query_size = {size_t(num_hash_funcs_), 1, pirana_m};
+        size_t num_subbucket = max_slots / num_buckets;
+        size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
+        
+        for (PIRANA_m = 2; utils::choose(PIRANA_m, PIRANA_k) < subbucket_size; PIRANA_m++); 
+
+        query_size = {size_t(num_hash_funcs_), 1, PIRANA_m};
         response_size = {size_t(num_hash_funcs_),  get_num_slots_per_entry()};
     }
 
