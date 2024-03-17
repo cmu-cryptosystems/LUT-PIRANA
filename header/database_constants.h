@@ -9,10 +9,6 @@ enum BatchPirType {
     UIUC
 };
 
-#ifndef output_length
-#define output_length 16
-#endif
-
 namespace DatabaseConstants {
 
     constexpr int PolyDegree = 8192;
@@ -21,7 +17,7 @@ namespace DatabaseConstants {
     constexpr int NumHashFunctions = 3;
     constexpr double CuckooFactor = 1.2;
     constexpr double CuckooFactorBucket = 1.4;
-    constexpr int OutputLength = output_length;
+    constexpr int OutputLength = LUT_OUTPUT_SIZE;
     constexpr int InputLength = OutputLength + 1;
     constexpr int BucketHashLength = 32;
     constexpr double FirstDimension = 32;
