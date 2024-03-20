@@ -27,9 +27,9 @@ typedef std::bitset<DatabaseConstants::OutputLength> rawdatablock;
 
 class LowMC {
 public:
-    LowMC (keyblock k = 0, prefixblock prefix = 0) {
+    LowMC (keyblock k, prefixblock prefix) {
         key = k;
-        prefix = prefix;
+        prefix_ = prefix;
         instantiate_LowMC();
         keyschedule();
     };
@@ -37,10 +37,9 @@ public:
     block encrypt (const block message);
     block decrypt (const block message);
     void set_key (keyblock k);
+    prefixblock get_prefix () {return prefix_; }
 
     void print_matrices();
-    
-    prefixblock prefix;
     
 private:
 // LowMC private data members //
@@ -57,6 +56,8 @@ private:
         // Stores the round constants
     keyblock key = 0;
         //Stores the master key
+    prefixblock prefix_ = 0;
+        //Stores the prefix
     std::vector<std::vector<keyblock>> KeyMatrices;
         // Stores the matrices that generate the round keys
     std::vector<block> roundkeys;

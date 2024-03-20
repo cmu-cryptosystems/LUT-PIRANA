@@ -70,7 +70,7 @@ inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket
     rawinputblock d(data);
     std::vector<string> ciphertexts;
     for (auto& cipher: ciphers) {
-        auto message = concatenate(cipher.prefix, d);
+        auto message = concatenate(cipher.get_prefix(), d);
         auto ciphertext = cipher.encrypt(message).to_string();
         ciphertexts.emplace_back(ciphertext);
     }
