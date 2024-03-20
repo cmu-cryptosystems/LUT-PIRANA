@@ -207,8 +207,6 @@ void LowMC::instantiate_LowMC () {
         } while ( rank_of_Matrix_Key(mat) < std::min(blocksize, keysize) );
         KeyMatrices[r] = mat;
     }
-
-    prefix = utils::random_bitset<prefixsize>();
     
     return;
 }

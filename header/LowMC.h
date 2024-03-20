@@ -27,8 +27,9 @@ typedef std::bitset<DatabaseConstants::OutputLength> rawdatablock;
 
 class LowMC {
 public:
-    LowMC (keyblock k = 0) {
+    LowMC (keyblock k = 0, prefixblock prefix = 0) {
         key = k;
+        prefix = prefix;
         instantiate_LowMC();
         keyschedule();
     };

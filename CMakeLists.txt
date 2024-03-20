@@ -46,3 +46,5 @@ target_link_libraries(vectorized_batch_pir OpenMP::OpenMP_CXX)
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(vectorized_batch_pir PRIVATE "-O3")
 endif()
+
+add_compile_definitions(vectorized_batch_pir LUT_OUTPUT_SIZE=${LUT_OUTPUT_SIZE})

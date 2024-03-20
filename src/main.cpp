@@ -61,13 +61,18 @@ int batchpir_main(int argc, char* argv[])
     for (size_t i = 0; i < params.get_num_hash_funcs(); i++) {
         keys.emplace_back(random_bitset<keysize>());
     }
+    
+    vector<prefixblock> prefixes; 
+    for (size_t i = 0; i < params.get_num_hash_funcs(); i++) {
+        prefixes.emplace_back(random_bitset<prefixsize>());
+    }
 
     BatchPIRServer batch_server(params);
     BatchPIRClient batch_client(params);
 
     batch_server.populate_raw_db();
     auto start = chrono::high_resolution_clock::now();
-    batch_server.initialize(keys);
+    batch_server.initialize(keys, prefixes);
     auto end = chrono::high_resolution_clock::now();
     auto duration_init = chrono::duration_cast<chrono::milliseconds>(end - start);
     cout << "Main: Initialization complete for example " << (iteration + 1) << "." << endl;
