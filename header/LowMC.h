@@ -36,7 +36,6 @@ public:
     block encrypt (const block message);
     block decrypt (const block message);
     void set_key (keyblock k);
-    const keyblock get_key () {return key;}
 
     void print_matrices();
     

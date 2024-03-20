@@ -27,10 +27,10 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
 
 }
 
-void BatchPIRServer::initialize() {
+void BatchPIRServer::initialize(vector<keyblock> keys) {
     check(is_db_populated, "Error: Database not populated.");
     initialize_masks();
-    lowmc_prepare();
+    lowmc_prepare(keys);
     lowmc_encode();
     lowmc_encrypt();
     prepare_pir_server();
@@ -77,7 +77,7 @@ inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket
     std::tie(candidate_buckets, candidate_position) = utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts);
 }
 
-void BatchPIRServer::lowmc_prepare() {
+void BatchPIRServer::lowmc_prepare(vector<keyblock> keys) {
     auto total_buckets = batchpir_params_->get_num_buckets();
     auto num_candidates = batchpir_params_->get_num_hash_funcs();
     auto db_entries = batchpir_params_->get_num_entries();
@@ -85,7 +85,7 @@ void BatchPIRServer::lowmc_prepare() {
     bool parallel = batchpir_params_->is_parallel();
 
     for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
-        ciphers.emplace_back(utils::LowMC(random_bitset<keysize>()));
+        ciphers.emplace_back(utils::LowMC(keys[i]));
     }
     check(num_candidates == ciphers.size());
 
