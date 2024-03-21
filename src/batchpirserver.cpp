@@ -293,31 +293,26 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
             masked_value.resize(num_columns_per_entry, PIRResponseList(subbucket_size));
             response[hash_idx].resize(num_columns_per_entry);
 
-            #pragma omp parallel for if(parallel)
+            vector<vector<Ciphertext>> c_to_mul(subbucket_size);
             for (int column=0; column < subbucket_size; column++) {
                 auto code = utils::get_perfect_constant_weight_codeword(column, m, k);
-                utils::check(code.size() == m);
-                vector<Ciphertext> c_to_mul;
                 for (int code_idx = 0; code_idx < m; code_idx++) {
                     if (code[code_idx] == 1ULL) {
-                        c_to_mul.push_back(queries[hash_idx][0][code_idx]);
+                        c_to_mul[column].push_back(queries[hash_idx][0][code_idx]);
                     }
                 }
-                check(c_to_mul.size() == 2);
+            }
 
+            #pragma omp parallel for if(parallel)
+            for (int column=0; column < subbucket_size; column++) {
                 Ciphertext mask;
                 
-                if (k == 2) {
-                    evaluator_->multiply(c_to_mul[0], c_to_mul[1], mask);
-                } else {
-                    evaluator_->multiply_many(c_to_mul, client_keys_[client_id], mask);
-                }
+                evaluator_->multiply_many(c_to_mul[column], client_keys_[client_id], mask);
                 evaluator_->transform_to_ntt_inplace(mask);
                 // Get column
                 for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                     evaluator_->multiply_plain(mask, encoded_columns[hash_idx][column][slot_idx], masked_value[slot_idx][column]);
                 }
-
             }
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
