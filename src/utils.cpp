@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <chrono>
 
 using namespace std::chrono;
 
@@ -10,8 +11,8 @@ namespace utils {
 
     void timing_end(string prefix) {
         auto end = chrono::high_resolution_clock::now();
-        auto duration_init = chrono::duration_cast<chrono::milliseconds>(end - start_timestamps[prefix]);
-        std::cout << fmt::format("{}: {} ms. ", prefix, duration_init.count()) << std::endl;
+        auto duration_init = chrono::duration_cast<chrono::nanoseconds>(end - start_timestamps[prefix]);
+        std::cout << fmt::format("{}: {:.3f} ms. ", prefix, duration_init.count() * 1.0 / 1e6) << std::endl;
         start_timestamps.erase(prefix);
     }
 
