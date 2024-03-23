@@ -111,13 +111,11 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
     
     for (int i = 0; i < batch_size; i++)
     {
-        auto [candidate_buckets, candidate_positions]  = utils::get_candidates_with_hash_values(total_buckets, bucket_size, batch[i]);
-        key_to_buckets[i] = candidate_buckets;
-        key_to_position[i] = candidate_positions;
+        utils::get_candidates_with_hash_values(total_buckets, bucket_size, batch[i], key_to_buckets[i], key_to_position[i]);
     }
 
     // seed the random number generator with current time
-    // srand(time(nullptr));
+    srand(time(nullptr));
     for (auto const &[key, value] : key_to_buckets)
     {
         utils::cuckoo_insert(key, 0, key_to_buckets, cuckoo_map);

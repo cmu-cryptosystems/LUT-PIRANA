@@ -66,35 +66,33 @@ void BatchPIRServer::initialize_masks() {
     }
 }
 
-inline void get_candidate_lowmc(size_t data, size_t total_buckets, size_t bucket_size, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position, std::vector<utils::LowMC>& ciphers) {
-    rawinputblock d(data);
-    std::vector<string> ciphertexts;
-    for (auto& cipher: ciphers) {
-        auto message = concatenate(cipher.get_prefix(), d);
-        auto ciphertext = cipher.encrypt(message).to_string();
-        ciphertexts.emplace_back(ciphertext);
-    }
-    std::tie(candidate_buckets, candidate_position) = utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts);
-}
-
 void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes) {
     auto total_buckets = batchpir_params_->get_num_buckets();
     auto num_candidates = batchpir_params_->get_num_hash_funcs();
     auto db_entries = batchpir_params_->get_num_entries();
+    size_t w = batchpir_params_->get_num_hash_funcs();
     auto bucket_size = ceil(batchpir_params_->get_cuckoo_factor_bucket() * num_candidates * db_entries / total_buckets); 
     bool parallel = batchpir_params_->is_parallel();
 
-    for (size_t i = 0; i < batchpir_params_->get_num_hash_funcs(); i++) {
+    for (size_t i = 0; i < num_candidates; i++) {
         ciphers.emplace_back(utils::LowMC(keys[i], prefixes[i]));
     }
-    check(num_candidates == ciphers.size());
 
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
+    std::vector<std::vector<string>> ciphertexts(db_entries, std::vector<string>(w));
+
+    #pragma omp parallel for if(parallel) collapse(2)
+    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+        for (uint64_t i = 0; i < db_entries; i++) {
+            block message = concatenate(ciphers[hash_idx].get_prefix(), rawinputblock(i));
+            ciphertexts[i][hash_idx] = ciphers[hash_idx].encrypt(message).to_string();
+        }
+    }
     #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
-        get_candidate_lowmc(i, total_buckets, bucket_size, candidate_buckets_array[i], candidate_positions_array[i], ciphers);
+        utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts[i], candidate_buckets_array[i], candidate_positions_array[i]);
     }
 
 }
@@ -105,23 +103,34 @@ void BatchPIRServer::lowmc_encode() {
     auto num_candidates = batchpir_params_->get_num_hash_funcs();
     auto bucket_size = batchpir_params_->get_bucket_size();
     size_t w = batchpir_params_->get_num_hash_funcs();
+    bool parallel = batchpir_params_->is_parallel();
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        buckets_[hash_idx].resize(total_buckets);
-        for(auto &b : buckets_[hash_idx])
-            b.resize(bucket_size);
+        buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
     }
     
-    // srand(time(nullptr));
+    srand(time(nullptr));
 
-    std::vector<std::unordered_map<uint64_t, std::vector<size_t>>> key_to_position(total_buckets);
-    position_to_key.resize(total_buckets);
+    std::unordered_map<uint64_t, std::vector<size_t>> key_to_position;
+    for (uint64_t i = 0; i < db_entries; i++) {
+        key_to_position[i] = candidate_positions_array[i];
+    }
+
+    std::vector<std::vector<uint64_t>> insert_buffer(total_buckets);
+    for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++)
+        insert_buffer.reserve(bucket_size);
     for (uint64_t i = 0; i < db_entries; i++)
     {
-        for (auto b : candidate_buckets_array[i])
+        for (auto& b : candidate_buckets_array[i])
         {
-            // cuckoo insert
-            key_to_position[b][i] = candidate_positions_array[i];
-            cuckoo_insert(i, 0, key_to_position[b], position_to_key[b]);
+            insert_buffer[b].push_back(i);
+        }
+    }
+
+    position_to_key.resize(total_buckets);
+    #pragma omp parallel for if(parallel)
+    for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++) {
+        for (auto& i: insert_buffer[bucket_idx]) {
+            cuckoo_insert(i, 0, key_to_position, position_to_key[bucket_idx]);
         }
     }
 }
@@ -133,10 +142,10 @@ void BatchPIRServer::lowmc_encrypt() {
     size_t w = batchpir_params_->get_num_hash_funcs();
     bool parallel = batchpir_params_->is_parallel();
     
-    #pragma omp parallel for if(parallel)
-    for(size_t b = 0; b < total_buckets; b++) {
-        for (auto const &[pos, idx] : position_to_key[b]) {
-            for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+    #pragma omp parallel for if(parallel) collapse(2)
+    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+        for(size_t b = 0; b < total_buckets; b++) {
+            for (auto const &[pos, idx] : position_to_key[b]) {
                 buckets_[hash_idx][b][pos] = concatenate(rawinputblock(idx) ^ index_masks[hash_idx][b], rawdb_[idx] ^ entry_masks[hash_idx][b]);
             }
         }
@@ -196,23 +205,24 @@ void BatchPIRServer::prepare_pir_server()
             
             #pragma omp parallel for if(parallel)
             for (auto column = 0; column < subbucket_size; column++) {
-                vector<vector<uint64_t>> plain_col(num_columns_per_entry);
                 for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                     size_t start = slot_idx * size_of_coeff;
                     size_t end = std::min((slot_idx + 1) * size_of_coeff, entry_size);
+                    vector<uint64_t> plain_col;
+                    plain_col.reserve(num_buckets * num_subbucket);
                     for (auto bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
                         for (size_t subbucket_idx = 0; subbucket_idx < num_subbucket; subbucket_idx++) {
                             size_t selected_column = subbucket_idx*subbucket_size + column;
                             if (selected_column > buckets_[hash_idx][bucket_idx].size()) {
-                                plain_col[slot_idx].push_back(0);
+                                plain_col.push_back(0);
                             } else {
                                 string sub = buckets_[hash_idx][bucket_idx][selected_column].to_string().substr(start, end - start);
                                 uint64_t item = std::stoull(sub, 0, 2);
-                                plain_col[slot_idx].push_back(item);
+                                plain_col.push_back(item);
                             }
                         }
                     }
-                    batch_encoder_->encode(plain_col[slot_idx], encoded_columns[hash_idx][column][slot_idx]);
+                    batch_encoder_->encode(plain_col, encoded_columns[hash_idx][column][slot_idx]);
                 }
                 
             }

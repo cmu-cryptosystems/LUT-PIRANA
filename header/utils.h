@@ -163,15 +163,11 @@ using namespace seal;
 
     bool cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
     
-    inline auto get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts) {
-        std::vector<size_t> candidate_buckets, candidate_position;
+    inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
         for (auto& ciphertext: ciphertexts) {
-            auto bucket_hash = ciphertext.substr(0, DatabaseConstants::BucketHashLength);
-            auto pos_hash = ciphertext.substr(DatabaseConstants::BucketHashLength);
-            append_non_collide_output(bucket_hash, total_buckets, candidate_buckets);
-            append_non_collide_output(pos_hash, bucket_size, candidate_position);
+            append_non_collide_output(ciphertext.substr(0, DatabaseConstants::BucketHashLength), total_buckets, candidate_buckets);
+            append_non_collide_output(ciphertext.substr(DatabaseConstants::BucketHashLength), bucket_size, candidate_position);
         }
-        return make_pair(candidate_buckets, candidate_position);
     }
     
     inline void multiply_acum(uint64_t op1, uint64_t op2, __uint128_t& product_acum) {

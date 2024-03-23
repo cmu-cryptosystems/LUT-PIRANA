@@ -36,9 +36,6 @@ target_link_libraries(vectorized_batch_pir SEAL::seal)
 find_package(FMT REQUIRED)
 target_link_libraries(vectorized_batch_pir fmt::fmt)
 
-find_package(Boost REQUIRED)
-target_include_directories(vectorized_batch_pir PUBLIC ${Boost_INCLUDE_DIR})
-
 find_package(OpenMP REQUIRED)
 target_link_libraries(vectorized_batch_pir OpenMP::OpenMP_CXX)
 
