@@ -10,6 +10,7 @@
 #include <utility>
 
 using namespace utils;
+using namespace DatabaseConstants;
 
 BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
 {
@@ -22,8 +23,6 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
     evaluator_ = new Evaluator(*context_);
     batch_encoder_ = new BatchEncoder(*context_);
     plaint_bit_count_ = batchpir_params_->get_seal_parameters().plain_modulus().bit_count();
-    polynomial_degree_ = batchpir_params_->get_seal_parameters().poly_modulus_degree();
-    row_size_ = polynomial_degree_ / 2;
 
 }
 
@@ -38,7 +37,7 @@ void BatchPIRServer::initialize(vector<keyblock> keys, vector<prefixblock> prefi
 
 void BatchPIRServer::populate_raw_db(std::function<rawdatablock(size_t)> generator)
 {
-    auto db_entries = batchpir_params_->get_num_entries();
+    const auto db_entries = DBSize;
 
     // Resize the rawdb vector to the correct size
     rawdb_.resize(db_entries);
@@ -54,27 +53,26 @@ void BatchPIRServer::populate_raw_db(std::function<rawdatablock(size_t)> generat
 void BatchPIRServer::initialize_masks() {
     auto total_buckets = batchpir_params_->get_num_buckets();
     
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         index_masks[hash_idx].resize(total_buckets);
         for (auto &r: index_masks[hash_idx])
-            r = utils::random_bitset<DatabaseConstants::InputLength>();
+            r = utils::random_bitset<InputLength>();
         
         entry_masks[hash_idx].resize(total_buckets);
         for (auto &r: entry_masks[hash_idx])
-            r = utils::random_bitset<DatabaseConstants::OutputLength>();
+            r = utils::random_bitset<OutputLength>();
     }
 }
 
 void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes) {
     auto total_buckets = batchpir_params_->get_num_buckets();
-    auto num_candidates = batchpir_params_->get_num_hash_funcs();
-    auto db_entries = batchpir_params_->get_num_entries();
-    size_t w = batchpir_params_->get_num_hash_funcs();
-    auto bucket_size = ceil(batchpir_params_->get_cuckoo_factor_bucket() * num_candidates * db_entries / total_buckets); 
+    const auto db_entries = DBSize;
+    const auto w = NumHashFunctions;
+    auto bucket_size = batchpir_params_->get_bucket_size(); 
     bool parallel = batchpir_params_->is_parallel();
 
-    for (size_t i = 0; i < num_candidates; i++) {
+    for (size_t i = 0; i < w; i++) {
         ciphers.emplace_back(utils::LowMC(keys[i], prefixes[i]));
     }
 
@@ -99,10 +97,9 @@ void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> pr
 
 void BatchPIRServer::lowmc_encode() {
     auto total_buckets = batchpir_params_->get_num_buckets();
-    auto db_entries = batchpir_params_->get_num_entries();
-    auto num_candidates = batchpir_params_->get_num_hash_funcs();
+    const auto db_entries = DBSize;
     auto bucket_size = batchpir_params_->get_bucket_size();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
@@ -137,9 +134,9 @@ void BatchPIRServer::lowmc_encode() {
 
 void BatchPIRServer::lowmc_encrypt() {
     auto total_buckets = batchpir_params_->get_num_buckets();
-    auto db_entries = batchpir_params_->get_num_entries();
+    const auto db_entries = DBSize;
     auto bucket_size = batchpir_params_->get_bucket_size();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
     
     #pragma omp parallel for if(parallel) collapse(2)
@@ -154,27 +151,6 @@ void BatchPIRServer::lowmc_encrypt() {
     lowmc_encoded = true;
 }
 
-// void BatchPIRServer::print_stats() const
-// {
-//     std::cout << "BatchPIRServer: Bucket Statistics:\n";
-//     std::cout << "===================\n";
-//     std::cout << "BatchPIRServer: Number of Buckets: " << buckets_.size() << "\n";
-
-//     // size_t max_bucket_size = get_bucket_size();
-//     // size_t min_bucket_size = get_min_bucket_size();
-//     // size_t avg_bucket_size = get_avg_bucket_size();
-
-//     // std::cout << "Max Bucket Size: " << max_bucket_size << "\n";
-//     // std::cout << "Min Bucket Size: " << min_bucket_size << "\n";
-//     // std::cout << "Avg Bucket Size: " << avg_bucket_size << "\n";
-// }
-
-// size_t BatchPIRServer::get_first_dimension_size(size_t num_entries)
-// {
-//     size_t cube_root = std::ceil(std::cbrt(num_entries));
-//     return utils::next_power_of_two(cube_root);
-// }
-
 void BatchPIRServer::prepare_pir_server()
 {
 
@@ -185,7 +161,7 @@ void BatchPIRServer::prepare_pir_server()
 
     auto num_buckets = batchpir_params_->get_num_buckets();
     size_t bucket_size = batchpir_params_->get_bucket_size();
-    size_t num_subbucket = polynomial_degree_ / num_buckets;
+    size_t num_subbucket = PolyDegree / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     auto type = batchpir_params_->get_type();
     size_t dim_size = batchpir_params_->get_first_dimension_size();
@@ -195,12 +171,12 @@ void BatchPIRServer::prepare_pir_server()
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     const int size_of_coeff = plaint_bit_count_ - 1;
     auto pid = context_->first_parms_id();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
 
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         if (type == PIRANA) {
-            size_t entry_size = batchpir_params_->get_entry_size();
+            const size_t entry_size = utils::datablock_size;
             encoded_columns[hash_idx].resize(subbucket_size, vector<Plaintext>(num_columns_per_entry));
             
             #pragma omp parallel for if(parallel)
@@ -253,7 +229,7 @@ void BatchPIRServer::prepare_pir_server()
 
 void BatchPIRServer::set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys)
 {
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     auto type = batchpir_params_->get_type();
 
     if (type == PIRANA) {
@@ -283,10 +259,10 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     
     auto num_buckets = batchpir_params_->get_num_buckets();
     size_t bucket_size = batchpir_params_->get_bucket_size();
-    size_t num_subbucket = polynomial_degree_ / num_buckets;
+    size_t num_subbucket = PolyDegree / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     const auto [m, k] = batchpir_params_->get_PIRANA_params();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     auto type = batchpir_params_->get_type();
     size_t dim_size = batchpir_params_->get_first_dimension_size();
@@ -344,14 +320,14 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
 
 bool BatchPIRServer::check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map)
 {
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     for (auto const &[bucket, original_index] : cuckoo_map) {
-        if (queries[original_index].to_ullong() >= batchpir_params_->get_num_entries())
+        if (queries[original_index].to_ullong() >= DBSize)
             continue;
         bool flag = false;
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             const auto pos = candidate_positions_array[queries[original_index].to_ullong()][hash_idx];
-            auto [index, entry] = utils::split<DatabaseConstants::InputLength>(entries_list[bucket][hash_idx]);
+            auto [index, entry] = utils::split<InputLength>(entries_list[bucket][hash_idx]);
             utils::check(entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos], fmt::format("Decode problem. {} != {}", entries_list[bucket][hash_idx].to_string(), buckets_[hash_idx][bucket][pos].to_string()));
             auto idx = index ^ index_masks[hash_idx][bucket];
             auto data = entry ^ entry_masks[hash_idx][bucket];

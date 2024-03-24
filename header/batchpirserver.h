@@ -19,7 +19,6 @@ class BatchPIRServer {
 public:
     
     BatchPIRServer( BatchPirParams& batchpir_params);
-    // std::unordered_map<std::string, uint64_t> get_hash_map() const;
     void set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys);
     void get_client_keys();
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
@@ -79,7 +78,6 @@ private:
     void lowmc_encrypt();
     void initialize_masks();
     void prepare_pir_server();
-    // void print_stats() const; 
 
     // HE
     seal::SEALContext *context_;
@@ -87,12 +85,6 @@ private:
     seal::BatchEncoder *batch_encoder_;
     std::map<uint32_t, seal::RelinKeys> client_keys_;
     size_t plaint_bit_count_;
-    size_t polynomial_degree_;
-    vector<size_t> pir_dimensions_;
-    size_t row_size_;
-    size_t gap_;
-    PIRQuery query_; 
-    size_t num_databases_;
     
     array<vector<Server>, DatabaseConstants::NumHashFunctions> server_list_;
 

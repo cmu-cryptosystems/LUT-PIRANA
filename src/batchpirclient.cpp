@@ -1,4 +1,5 @@
 #include "batchpirclient.h"
+#include <cassert>
 #include <cstdint>
 #include <seal/ciphertext.h>
 #include <seal/evaluator.h>
@@ -6,11 +7,12 @@
 #include <stdexcept>
 #include <sys/types.h>
 
+using namespace DatabaseConstants;
+
 BatchPIRClient::BatchPIRClient(BatchPirParams &params)
     : is_cuckoo_generated_(false)
 {
     batchpir_params_ = &params;
-    max_attempts_ = batchpir_params_->get_max_attempts();
 
     prepare_pir_clients();
 }
@@ -25,7 +27,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
 
     size_t batch_size = batchpir_params_->get_batch_size();
     size_t bucket_size = batchpir_params_->get_bucket_size();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
     auto num_buckets = batchpir_params_->get_num_buckets();
     size_t num_subbucket = max_slots / num_buckets;
@@ -93,12 +95,10 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
 {
 
     size_t total_buckets = batchpir_params_->get_num_buckets();
-    auto db_entries = batchpir_params_->get_num_entries();
-    auto num_candidates = batchpir_params_->get_num_hash_funcs();
+    const auto db_entries = DBSize;
     size_t bucket_size = batchpir_params_->get_bucket_size();
-    auto attempts = batchpir_params_->get_max_attempts();
     auto batch_size = batchpir_params_->get_batch_size();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
 
     if (batch.size() != batch_size)
     {
@@ -134,12 +134,6 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
     return true;
 }
 
-void BatchPIRClient::measure_size(vector<Ciphertext> list, size_t seeded){
-    // for (int i=0; i < list.size(); i++){
-    //     serialized_comm_size_ += ceil(list[i].save_size()/seeded);
-    // }
-}
-
 size_t BatchPIRClient::get_serialized_commm_size(){
     return ceil((double)serialized_comm_size_/1024);
 }
@@ -151,12 +145,12 @@ void BatchPIRClient::prepare_pir_clients()
     context_ = new SEALContext(batchpir_params_->get_seal_parameters());
     if (batchpir_params_->get_type() == UIUC) {
         size_t max_bucket_size = batchpir_params_->get_bucket_size();
-        size_t num_hash_funcs = batchpir_params_->get_num_hash_funcs();
+        size_t num_hash_funcs = DatabaseConstants::NumHashFunctions;
         size_t dim_size = batchpir_params_->get_first_dimension_size();
         auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
-        auto num_buckets = ceil(batchpir_params_->get_batch_size() * batchpir_params_->get_cuckoo_factor());
+        auto num_buckets = batchpir_params_->get_num_buckets();
         size_t per_client_capacity = max_slots / dim_size;
-        size_t num_client = ceil(num_buckets / per_client_capacity);
+        size_t num_client = ceil(num_buckets * 1.0 / per_client_capacity);
         auto remaining_buckets = num_buckets;
         auto previous_idx = 0;
         seal::KeyGenerator *keygen;
@@ -178,6 +172,7 @@ void BatchPIRClient::prepare_pir_clients()
                 client_list_.push_back(vector<Client>(num_hash_funcs, client));
             }
         }
+        assert(client_list_.size() > 0);
     } else {
         batch_encoder_ = new BatchEncoder(*context_);
         keygen_ = new KeyGenerator(*context_);
@@ -203,7 +198,7 @@ void BatchPIRClient::prepare_pir_clients()
 vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList> responses)
 {
     auto plaint_bit_count_ = batchpir_params_->get_seal_parameters().plain_modulus().bit_count();
-    size_t w = batchpir_params_->get_num_hash_funcs();
+    const auto w = NumHashFunctions;
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     const int size_of_coeff = plaint_bit_count_ - 1;
     size_t batch_size = batchpir_params_->get_batch_size();

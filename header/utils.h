@@ -26,6 +26,7 @@ typedef  std::vector<std::bitset<datablock_size>>  EncodedDB;
 typedef  std::vector<std::bitset<datablock_size>>  RawResponses;
 using namespace std;
 using namespace seal;
+using namespace DatabaseConstants;
 
 
     // Returns the next power of 2 for a given number
@@ -178,8 +179,7 @@ using namespace seal;
     {
         seal::EncryptionParameters seal_params(seal::scheme_type::bfv);
 
-        // Generally this parameter selectioon will work
-        const int PolyDegree = 8192;
+        // Generally this parameter selection will work
         int PlaintextModBitss = 22;
         vector<int> CoeffMods = {55, 55, 48, 60};
         seal_params.set_poly_modulus_degree(PolyDegree);

@@ -54,16 +54,16 @@ int batchpir_main(int argc, char* argv[])
 
     const auto& choice = input_choices[iteration];
 
-    BatchPirParams params(choice[0], choice[1], choice[2]);
+    BatchPirParams params(choice[0], true);
     params.print_params();
 
     vector<keyblock> keys; 
-    for (size_t i = 0; i < params.get_num_hash_funcs(); i++) {
+    for (size_t i = 0; i < NumHashFunctions; i++) {
         keys.emplace_back(random_bitset<keysize>());
     }
     
     vector<prefixblock> prefixes; 
-    for (size_t i = 0; i < params.get_num_hash_funcs(); i++) {
+    for (size_t i = 0; i < NumHashFunctions; i++) {
         prefixes.emplace_back(random_bitset<prefixsize>());
     }
 
@@ -84,7 +84,7 @@ int batchpir_main(int argc, char* argv[])
     for (int i = 0; i < choice[0]; i++)
     {
         plain_queries[i] = rawinputblock(choice[1] - (choice[0] / 2) + i);
-        for (int j = 0; j < params.get_num_hash_funcs(); j++)
+        for (int j = 0; j < NumHashFunctions; j++)
         {
             auto& cipher = batch_server.ciphers[j];
             auto message = utils::concatenate(prefixes[j], plain_queries[i]);

@@ -18,6 +18,7 @@ namespace DatabaseConstants {
     constexpr double CuckooFactor = 1.2;
     constexpr double CuckooFactorBucket = 1.4;
     constexpr int OutputLength = LUT_OUTPUT_SIZE;
+    constexpr int DBSize = 1 << OutputLength;
     constexpr int InputLength = OutputLength + 1;
     constexpr int BucketHashLength = 32;
     constexpr double FirstDimension = 32;

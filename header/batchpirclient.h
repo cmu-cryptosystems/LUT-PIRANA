@@ -60,7 +60,6 @@ public:
 
 private:
     BatchPirParams* batchpir_params_;
-    size_t max_attempts_;
     bool is_cuckoo_generated_;
     size_t serialized_comm_size_ = 0;
     
@@ -77,7 +76,6 @@ private:
 
     vector<seal_byte> glk_buffer, rlk_buffer;
 
-    void measure_size(vector<Ciphertext> list, size_t seeded = 1);
     bool cuckoo_hash(vector<vector<string>> batch);
     void prepare_pir_clients();
 };
