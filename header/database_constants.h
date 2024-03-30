@@ -15,8 +15,8 @@ namespace DatabaseConstants {
     constexpr int PlaintextModBitss = 22;
     constexpr int MaxAttempts = 500;
     constexpr int NumHashFunctions = 3;
-    constexpr double CuckooFactor = 1.2;
-    constexpr double CuckooFactorBucket = 1.4;
+    constexpr double CuckooFactor = 1.5;
+    constexpr double CuckooFactorBucket = 1.5;
     constexpr int OutputLength = LUT_OUTPUT_SIZE;
     constexpr int DBSize = 1 << OutputLength;
     constexpr int InputLength = OutputLength + 1;
