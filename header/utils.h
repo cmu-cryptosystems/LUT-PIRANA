@@ -181,7 +181,11 @@ using namespace DatabaseConstants;
 
         // Generally this parameter selection will work
         // smaller p & bigger q -> higher depth
-        int PlaintextModBitss = (datablock_size + 1) / 2; 
+        int PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+        // HACK for 18-bit PIR
+        if (LUT_OUTPUT_SIZE == 18) {
+            PlaintextModBitss = LUT_OUTPUT_SIZE + 2;
+        } 
         auto CoeffMods = (type == PIRANA) ? vector<int>{45, 45, 50} : vector<int>{50, 55, 48, 60};
         seal_params.set_poly_modulus_degree(PolyDegree);
 
