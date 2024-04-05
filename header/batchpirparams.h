@@ -29,7 +29,7 @@ public:
 
 private:
     int batch_size_= 0;
-    size_t dim_size_= 0;
+    size_t dim_size_= 1;
     uint64_t default_value_ = 0;
     seal::EncryptionParameters seal_params_;
     bool parallel;

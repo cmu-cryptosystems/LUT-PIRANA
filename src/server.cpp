@@ -1,4 +1,6 @@
 #include "server.h"
+#include <cassert>
+#include <seal/valcheck.h>
 
 // Constructor
 Server::Server(PirParams &pir_params) : pir_params_(pir_params)
@@ -368,6 +370,9 @@ PIRResponseList Server::merge_responses_chunks_buckets(vector<PIRResponseList> &
 
     current_fill = gap_ * num_slots_per_entry_rounded;
     auto merged_ctx_needed = ceil((chunk_response.size() * current_fill * 1.0) / row_size_);
+
+    // HACK
+    num_buckets_merged = responses.size();
 
     PIRResponseList chunk_bucket_responses;
     for (int i = 0; i < merged_ctx_needed; i++)

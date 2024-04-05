@@ -1,6 +1,7 @@
 #include "batchpirserver.h"
 #include "utils.h"
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <seal/ciphertext.h>
 #include <seal/plaintext.h>
@@ -161,11 +162,11 @@ void BatchPIRServer::prepare_pir_server()
 
     auto num_buckets = batchpir_params_->get_num_buckets();
     size_t bucket_size = batchpir_params_->get_bucket_size();
-    size_t num_subbucket = PolyDegree / num_buckets;
+    const auto max_slots = PolyDegree;
+    size_t num_subbucket = max_slots / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     auto type = batchpir_params_->get_type();
     size_t dim_size = batchpir_params_->get_first_dimension_size();
-    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
@@ -266,9 +267,9 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     auto type = batchpir_params_->get_type();
     size_t dim_size = batchpir_params_->get_first_dimension_size();
-    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+    const auto max_slots = PolyDegree;
     size_t per_server_capacity = max_slots / dim_size;
-    size_t num_servers = ceil(num_buckets / per_server_capacity);
+    size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
     bool parallel = batchpir_params_->is_parallel();
 
     vector<PIRResponseList> response(w);
@@ -303,6 +304,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
                 evaluator_->transform_from_ntt_inplace(response[hash_idx][slot_idx]);
+                evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
             }
         } else {
             int previous_idx = 0;

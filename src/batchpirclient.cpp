@@ -28,7 +28,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
     size_t batch_size = batchpir_params_->get_batch_size();
     size_t bucket_size = batchpir_params_->get_bucket_size();
     const auto w = NumHashFunctions;
-    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+    const auto max_slots = PolyDegree;
     auto num_buckets = batchpir_params_->get_num_buckets();
     size_t num_subbucket = max_slots / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
@@ -147,7 +147,7 @@ void BatchPIRClient::prepare_pir_clients()
         size_t max_bucket_size = batchpir_params_->get_bucket_size();
         size_t num_hash_funcs = DatabaseConstants::NumHashFunctions;
         size_t dim_size = batchpir_params_->get_first_dimension_size();
-        auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+        auto max_slots = PolyDegree;
         auto num_buckets = batchpir_params_->get_num_buckets();
         size_t per_client_capacity = max_slots / dim_size;
         size_t num_client = ceil(num_buckets * 1.0 / per_client_capacity);
@@ -208,7 +208,7 @@ vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     auto type = batchpir_params_->get_type();
     size_t dim_size = batchpir_params_->get_first_dimension_size();
-    auto max_slots = batchpir_params_->get_seal_parameters().poly_modulus_degree();
+    const auto max_slots = PolyDegree;
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets / per_server_capacity);
 
@@ -243,12 +243,15 @@ vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList
             const size_t num_slots_per_entry = batchpir_params_->get_num_slots_per_entry();
             const size_t num_slots_per_entry_rounded = utils::next_power_of_two(num_slots_per_entry);
             const size_t max_empty_slots = batchpir_params_->get_first_dimension_size();
-            const size_t row_size = batchpir_params_->get_seal_parameters().poly_modulus_degree() / 2;
+            const size_t row_size = PolyDegree / 2;
             const size_t gap = row_size / max_empty_slots;
             auto current_fill = gap * num_slots_per_entry_rounded;
             size_t num_buckets_merged = (row_size / current_fill);
             size_t num_chunk_ctx = ceil((num_slots_per_entry * 1.0) / max_empty_slots);
             utils::RawResponses all_entries;
+
+            // HACK
+            num_buckets_merged = num_servers;
 
             if (ceil(num_slots_per_entry * 1.0 / max_empty_slots) > 1 || num_buckets_merged <= 1 || client_list_.size() == 1) {
                 for (int i = 0; i < client_list_.size(); i++) {

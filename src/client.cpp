@@ -120,6 +120,9 @@ vector<utils::RawResponses> Client::decode_merged_responses(PIRResponseList resp
     const size_t num_slots_per_entry_rounded = utils::next_power_of_two(num_slots_per_entry);
     auto current_slots_fill = gap_ * num_slots_per_entry_rounded;
     size_t remaining_fill = (row_size_ / current_slots_fill);
+    
+    // HACK
+    remaining_fill = entry_slot_lists.size();
     size_t num_entries_single_row = row_size_ / num_slots_per_entry_rounded;
 
     seal::Plaintext pt;

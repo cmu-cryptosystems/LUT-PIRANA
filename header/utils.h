@@ -175,25 +175,15 @@ using namespace DatabaseConstants;
         product_acum = product_acum + static_cast<__uint128_t>(op1) * static_cast<__uint128_t>(op2); 
     }
 
-    inline seal::EncryptionParameters create_encryption_parameters(string selection = "", bool verbose = false)
+    inline seal::EncryptionParameters create_encryption_parameters(string selection = "", BatchPirType type = PIRANA, bool verbose = false)
     {
         seal::EncryptionParameters seal_params(seal::scheme_type::bfv);
 
         // Generally this parameter selection will work
-        int PlaintextModBitss = 22;
-        vector<int> CoeffMods = {55, 55, 48, 60};
+        // smaller p & bigger q -> higher depth
+        int PlaintextModBitss = (datablock_size + 1) / 2; 
+        auto CoeffMods = (type == PIRANA) ? vector<int>{45, 45, 50} : vector<int>{50, 55, 48, 60};
         seal_params.set_poly_modulus_degree(PolyDegree);
-
-        if(selection == "256,10485,256" ||  selection == "256,10485,32" ){
-            // use these parameters when internal PIR is 2d and no merging is needed at the end
-            PlaintextModBitss = 26;
-            CoeffMods = {55, 55, 60};
-
-        }else if(selection == "32,1048576,32" || selection == "64,1048576,32" || selection == "256,104857,32"){
-            // use these parameters when internal PIR is 3d but no merging is needed at the end
-            PlaintextModBitss = 28;
-            CoeffMods = {42, 58, 58, 60};
-        }
 
         seal_params.set_coeff_modulus(CoeffModulus::Create(PolyDegree, CoeffMods));
         seal_params.set_plain_modulus(PlainModulus::Batching(PolyDegree, PlaintextModBitss));
