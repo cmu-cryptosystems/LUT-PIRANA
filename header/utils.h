@@ -181,12 +181,34 @@ using namespace DatabaseConstants;
 
         // Generally this parameter selection will work
         // smaller p & bigger q -> higher depth
-        int PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
-        // HACK for 18-bit PIR
-        if (LUT_OUTPUT_SIZE == 18) {
-            PlaintextModBitss = LUT_OUTPUT_SIZE + 2;
-        } 
-        auto CoeffMods = (type == PIRANA) ? vector<int>{45, 45, 50} : vector<int>{50, 55, 48, 60};
+        int PlaintextModBitss = 22;
+        vector<int> CoeffMods = vector<int>{50, 55, 48, 60};
+        if (type == PIRANA)
+            switch (LUT_OUTPUT_SIZE) {
+                case 16:
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+                    CoeffMods = vector<int>{45, 45, 50};
+                    break;
+                case 18: 
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 2;
+                    CoeffMods = vector<int>{45, 45, 50};
+                    break;
+                case 20:
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+                    CoeffMods = vector<int>{45, 45, 50};
+                    break;
+                case 22:
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+                    CoeffMods = vector<int>{50, 50, 50};
+                    break;
+                case 24:
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+                    CoeffMods = vector<int>{55, 55, 55};
+                    break;
+                default:
+                    throw std::runtime_error("Error: LUT_OUTPUT_SIZE not supported");
+            }
+
         seal_params.set_poly_modulus_degree(PolyDegree);
 
         seal_params.set_coeff_modulus(CoeffModulus::Create(PolyDegree, CoeffMods));
