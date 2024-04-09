@@ -210,7 +210,7 @@ vector<utils::EncodedDB> BatchPIRClient::decode_responses(vector<PIRResponseList
     size_t dim_size = batchpir_params_->get_first_dimension_size();
     const auto max_slots = PolyDegree;
     size_t per_server_capacity = max_slots / dim_size;
-    size_t num_servers = ceil(num_buckets / per_server_capacity);
+    size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
 
     vector<utils::EncodedDB> entries_list(num_buckets, utils::EncodedDB(w));
     for (int hash_idx = 0; hash_idx < w; hash_idx++)

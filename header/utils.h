@@ -182,7 +182,7 @@ using namespace DatabaseConstants;
         // Generally this parameter selection will work
         // smaller p & bigger q -> higher depth
         int PlaintextModBitss = 22;
-        vector<int> CoeffMods = vector<int>{50, 55, 48, 60};
+        vector<int> CoeffMods = vector<int>{55, 55, 48, 60};
         if (type == PIRANA)
             switch (LUT_OUTPUT_SIZE) {
                 case 16:
