@@ -72,7 +72,7 @@ void Server::populate_raw_db()
     {
         if (i < db_entries)
         {
-            rawdb_[i] = utils::random_bitset<datablock_size>();
+            rawdb_[i] = utils::random_bitset_insecure<datablock_size>();
         }
         else
         {
@@ -128,7 +128,7 @@ EncodedDB Server::populate_return_raw_db()
     {
         if (i < db_entries)
         {
-            rawdb[i] = utils::random_bitset<datablock_size>();
+            rawdb[i] = utils::random_bitset_insecure<datablock_size>();
         }
         else
         {

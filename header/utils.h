@@ -13,6 +13,7 @@
 #include "LowMC.h"
 #include "database_constants.h"
 #include "seal/seal.h"
+#include <cryptoTools/Crypto/PRNG.h>
 
 typedef  std::vector<seal::Ciphertext> PIRQuery;
 typedef  seal::Ciphertext PIRResponse;
@@ -33,12 +34,6 @@ using namespace DatabaseConstants;
     inline size_t next_power_of_two(size_t n) {
         return pow(2, ceil(log2(n)));
     }
-
-    // Generates a random number between 0 and max_value
-    inline uint32_t generate_random_number(uint32_t max_value) {
-        return rand() % (max_value + 1);
-    }
-
 
     // Prints an error message and exits the program with an error code
     inline void check(bool condition, const std::string& error_message="Encounter errors!") {
@@ -114,7 +109,16 @@ using namespace DatabaseConstants;
     }
 
     template< size_t size = blocksize>
-    typename std::bitset<size> random_bitset( double p = 0.5) {
+    typename std::bitset<size> random_bitset(osuCrypto::PRNG* prng) {
+        typename std::bitset<size> bits;
+        for( int n = 0; n < size; ++n) {
+            bits[n] = prng->getBit();
+        }
+        return bits;
+    }
+
+    template< size_t size = blocksize>
+    typename std::bitset<size> random_bitset_insecure( double p = 0.5) {
         typename std::bitset<size> bits;
         std::random_device rd;
         std::mt19937 gen( rd());
@@ -204,6 +208,10 @@ using namespace DatabaseConstants;
                 case 24:
                     PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
                     CoeffMods = vector<int>{55, 55, 55};
+                    break;
+                case 26:
+                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
+                    CoeffMods = vector<int>{55, 55, 60};
                     break;
                 default:
                     throw std::runtime_error("Error: LUT_OUTPUT_SIZE not supported");

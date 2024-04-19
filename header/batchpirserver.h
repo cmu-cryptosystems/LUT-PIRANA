@@ -12,20 +12,21 @@
 #include <sys/types.h>
 #include "database_constants.h"
 #include <functional>
+#include <cryptoTools/Crypto/PRNG.h>
 
 
 class BatchPIRServer {
 
 public:
     
-    BatchPIRServer( BatchPirParams& batchpir_params);
+    BatchPIRServer( BatchPirParams& batchpir_params, osuCrypto::PRNG &prng);
     void set_client_keys(uint32_t client_id, std::pair<vector<seal_byte>, vector<seal_byte>> keys);
     void get_client_keys();
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
     bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize(vector<keyblock> keys, vector<prefixblock> prefixes);
-    void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset<DatabaseConstants::OutputLength>(); });
+    void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset_insecure<DatabaseConstants::OutputLength>(); });
    
     std::vector<utils::LowMC> ciphers;
     std::array<std::vector<rawinputblock>, DatabaseConstants::NumHashFunctions> index_masks;
@@ -72,6 +73,8 @@ private:
     bool is_client_keys_set_;
     std::vector<std::unordered_map<uint64_t, uint64_t>> position_to_key;
     vector<PIRResponseList> masked_value;
+
+    osuCrypto::PRNG* prng_;
 
     void lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes);
     void lowmc_encode();

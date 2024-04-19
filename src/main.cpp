@@ -1,4 +1,6 @@
 #include <cassert>
+#include <cryptoTools/Common/Defines.h>
+#include <cryptoTools/Crypto/PRNG.h>
 #include <iostream>
 #include <cstdlib>
 #include <chrono>
@@ -57,17 +59,19 @@ int batchpir_main(int argc, char* argv[])
     BatchPirParams params(choice[0], true);
     params.print_params();
 
+    osuCrypto::PRNG prng(osuCrypto::sysRandomSeed());
+
     vector<keyblock> keys; 
     for (size_t i = 0; i < NumHashFunctions; i++) {
-        keys.emplace_back(random_bitset<keysize>());
+        keys.emplace_back(random_bitset<keysize>(&prng));
     }
     
     vector<prefixblock> prefixes; 
     for (size_t i = 0; i < NumHashFunctions; i++) {
-        prefixes.emplace_back(random_bitset<prefixsize>());
+        prefixes.emplace_back(random_bitset<prefixsize>(&prng));
     }
 
-    BatchPIRServer batch_server(params);
+    BatchPIRServer batch_server(params, prng);
     BatchPIRClient batch_client(params);
 
     batch_server.populate_raw_db();

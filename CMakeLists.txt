@@ -39,6 +39,9 @@ target_link_libraries(vectorized_batch_pir fmt::fmt)
 find_package(OpenMP REQUIRED)
 target_link_libraries(vectorized_batch_pir OpenMP::OpenMP_CXX)
 
+find_package(libOTe REQUIRED)
+target_link_libraries(vectorized_batch_pir oc::libOTe)
+
 # Add compiler flags for optimization
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(vectorized_batch_pir PRIVATE "-O3")

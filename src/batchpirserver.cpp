@@ -2,6 +2,8 @@
 #include "utils.h"
 #include <algorithm>
 #include <cassert>
+#include <cryptoTools/Common/Defines.h>
+#include <cryptoTools/Crypto/PRNG.h>
 #include <cstdint>
 #include <seal/ciphertext.h>
 #include <seal/plaintext.h>
@@ -13,7 +15,7 @@
 using namespace utils;
 using namespace DatabaseConstants;
 
-BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
+BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params, osuCrypto::PRNG &prng)
 {
     batchpir_params_ = &batchpir_params;
     is_client_keys_set_ = false;
@@ -24,6 +26,8 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params)
     evaluator_ = new Evaluator(*context_);
     batch_encoder_ = new BatchEncoder(*context_);
     plaint_bit_count_ = batchpir_params_->get_seal_parameters().plain_modulus().bit_count();
+
+    prng_ = &prng;
 
 }
 
@@ -58,11 +62,11 @@ void BatchPIRServer::initialize_masks() {
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         index_masks[hash_idx].resize(total_buckets);
         for (auto &r: index_masks[hash_idx])
-            r = utils::random_bitset<InputLength>();
+            r = utils::random_bitset<InputLength>(prng_);
         
         entry_masks[hash_idx].resize(total_buckets);
         for (auto &r: entry_masks[hash_idx])
-            r = utils::random_bitset<OutputLength>();
+            r = utils::random_bitset<OutputLength>(prng_);
     }
 }
 
