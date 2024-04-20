@@ -13,6 +13,7 @@
 #include "database_constants.h"
 #include <functional>
 #include <cryptoTools/Crypto/PRNG.h>
+#include <cryptoTools/Crypto/AES.h>
 
 
 class BatchPIRServer {
@@ -25,10 +26,11 @@ public:
     vector<PIRResponseList> generate_response(uint32_t client_id, vector<vector<PIRQuery>> queries);
     bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
-    void initialize(vector<keyblock> keys, vector<prefixblock> prefixes);
+    void initialize();
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset_insecure<DatabaseConstants::OutputLength>(); });
    
-    std::vector<utils::LowMC> ciphers;
+    std::vector<utils::LowMC> lowmc_ciphers;
+    std::vector<oc::AES> aes_ciphers;
     std::array<std::vector<rawinputblock>, DatabaseConstants::NumHashFunctions> index_masks;
     std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> entry_masks;
     std::vector<std::vector<size_t>> candidate_buckets_array;
@@ -62,6 +64,9 @@ public:
         }
         return buffer;
     }
+    
+    void lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes);
+    void aes_prepare(vector<oc::block> keys, vector<std::bitset<128-DatabaseConstants::InputLength>> prefixes);
 
 private:
     BatchPirParams *batchpir_params_;
@@ -69,16 +74,15 @@ private:
     array<vector<EncodedDB>, DatabaseConstants::NumHashFunctions> buckets_;
     array<vector<vector<Plaintext>>, DatabaseConstants::NumHashFunctions> encoded_columns; // column, slot
     bool is_db_populated;
-    bool lowmc_encoded;
+    bool hash_encoded;
     bool is_client_keys_set_;
     std::vector<std::unordered_map<uint64_t, uint64_t>> position_to_key;
     vector<PIRResponseList> masked_value;
 
     osuCrypto::PRNG* prng_;
 
-    void lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes);
-    void lowmc_encode();
-    void lowmc_encrypt();
+    void hash_encode();
+    void hash_encrypt();
     void initialize_masks();
     void prepare_pir_server();
 

@@ -5,10 +5,11 @@
 
 using namespace DatabaseConstants;
 
-BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type, uint64_t pirana_k)
+BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type, HashType hash_type, uint64_t pirana_k)
     : batch_size_(batch_size),
       parallel(parallel),
       type_(type),  
+      hash_type_(hash_type),
       PIRANA_k(pirana_k) {
 
     std::string selection = std::to_string(batch_size) + "," + std::to_string(DBSize) + "," + std::to_string(utils::datablock_size);

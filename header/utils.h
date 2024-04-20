@@ -170,8 +170,8 @@ using namespace DatabaseConstants;
     
     inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
         for (auto& ciphertext: ciphertexts) {
-            append_non_collide_output(ciphertext.substr(0, DatabaseConstants::BucketHashLength), total_buckets, candidate_buckets);
-            append_non_collide_output(ciphertext.substr(DatabaseConstants::BucketHashLength), bucket_size, candidate_position);
+            append_non_collide_output(ciphertext.substr(0, ciphertext.size() / 2), total_buckets, candidate_buckets);
+            append_non_collide_output(ciphertext.substr(ciphertext.size() / 2), bucket_size, candidate_position);
         }
     }
     

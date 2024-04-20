@@ -19,7 +19,7 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params, osuCrypto::PRNG 
 {
     batchpir_params_ = &batchpir_params;
     is_client_keys_set_ = false;
-    lowmc_encoded = false;
+    hash_encoded = false;
     is_db_populated = false;
 
     context_ = new SEALContext(batchpir_params_->get_seal_parameters());
@@ -31,12 +31,10 @@ BatchPIRServer::BatchPIRServer(BatchPirParams &batchpir_params, osuCrypto::PRNG 
 
 }
 
-void BatchPIRServer::initialize(vector<keyblock> keys, vector<prefixblock> prefixes) {
-    check(is_db_populated, "Error: Database not populated.");
+void BatchPIRServer::initialize() {
     initialize_masks();
-    lowmc_prepare(keys, prefixes);
-    lowmc_encode();
-    lowmc_encrypt();
+    hash_encode();
+    hash_encrypt();
     prepare_pir_server();
 }
 
@@ -71,6 +69,7 @@ void BatchPIRServer::initialize_masks() {
 }
 
 void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes) {
+    check(is_db_populated, "Error: Database not populated.");
     auto total_buckets = batchpir_params_->get_num_buckets();
     const auto db_entries = DBSize;
     const auto w = NumHashFunctions;
@@ -78,7 +77,7 @@ void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> pr
     bool parallel = batchpir_params_->is_parallel();
 
     for (size_t i = 0; i < w; i++) {
-        ciphers.emplace_back(utils::LowMC(keys[i], prefixes[i]));
+        lowmc_ciphers.emplace_back(utils::LowMC(keys[i], prefixes[i]));
     }
 
     candidate_buckets_array.resize(db_entries);
@@ -89,18 +88,51 @@ void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> pr
     #pragma omp parallel for if(parallel) collapse(2)
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         for (uint64_t i = 0; i < db_entries; i++) {
-            block message = concatenate(ciphers[hash_idx].get_prefix(), rawinputblock(i));
-            ciphertexts[i][hash_idx] = ciphers[hash_idx].encrypt(message).to_string();
+            block message = concatenate(lowmc_ciphers[hash_idx].get_prefix(), rawinputblock(i));
+            ciphertexts[i][hash_idx] = lowmc_ciphers[hash_idx].encrypt(message).to_string();
         }
     }
     #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
         utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts[i], candidate_buckets_array[i], candidate_positions_array[i]);
     }
-
 }
 
-void BatchPIRServer::lowmc_encode() {
+void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-DatabaseConstants::InputLength>> prefixes) {
+    check(is_db_populated, "Error: Database not populated.");
+    auto total_buckets = batchpir_params_->get_num_buckets();
+    const auto db_entries = DBSize;
+    const auto w = NumHashFunctions;
+    auto bucket_size = batchpir_params_->get_bucket_size(); 
+    bool parallel = batchpir_params_->is_parallel();
+
+    for (size_t i = 0; i < w; i++) {
+        aes_ciphers.emplace_back(oc::AES(keys[i]));
+    }
+
+    candidate_buckets_array.resize(db_entries);
+    candidate_positions_array.resize(db_entries);
+
+    std::vector<std::vector<string>> ciphertexts(db_entries, std::vector<string>(w));
+
+    #pragma omp parallel for if(parallel) collapse(2)
+    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+        for (uint64_t i = 0; i < db_entries; i++) {
+            auto message_string = concatenate(prefixes[hash_idx], rawinputblock(i)).to_string();
+            uint64_t high_half = std::bitset<64>(message_string.substr(0, 64)).to_ullong();
+            uint64_t low_half = std::bitset<64>(message_string.substr(64)).to_ullong();
+            oc::block message(high_half, low_half);
+            auto c = aes_ciphers[hash_idx].ecbEncBlock(message).get<uint64_t>();
+            ciphertexts[i][hash_idx] = std::bitset<64>(c[1]).to_string() + std::bitset<64>(c[0]).to_string();
+        }
+    }
+    #pragma omp parallel for if(parallel)
+    for (uint64_t i = 0; i < db_entries; i++) {
+        utils::get_candidates_with_hash_values(total_buckets, bucket_size, ciphertexts[i], candidate_buckets_array[i], candidate_positions_array[i]);
+    }
+}
+
+void BatchPIRServer::hash_encode() {
     auto total_buckets = batchpir_params_->get_num_buckets();
     const auto db_entries = DBSize;
     auto bucket_size = batchpir_params_->get_bucket_size();
@@ -137,7 +169,7 @@ void BatchPIRServer::lowmc_encode() {
     }
 }
 
-void BatchPIRServer::lowmc_encrypt() {
+void BatchPIRServer::hash_encrypt() {
     auto total_buckets = batchpir_params_->get_num_buckets();
     const auto db_entries = DBSize;
     auto bucket_size = batchpir_params_->get_bucket_size();
@@ -153,13 +185,13 @@ void BatchPIRServer::lowmc_encrypt() {
         }
     }
 
-    lowmc_encoded = true;
+    hash_encoded = true;
 }
 
 void BatchPIRServer::prepare_pir_server()
 {
 
-    if (!lowmc_encoded)
+    if (!hash_encoded)
     {
         throw std::logic_error("Error: lowmc encoding must be performed before preparing PIR server.");
     }

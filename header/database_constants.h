@@ -9,6 +9,11 @@ enum BatchPirType {
     UIUC
 };
 
+enum HashType {
+    LowMC, 
+    AES
+};
+
 namespace DatabaseConstants {
 
     constexpr int PolyDegree = 8192;
