@@ -88,8 +88,9 @@ void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> pr
     #pragma omp parallel for if(parallel) collapse(2)
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         for (uint64_t i = 0; i < db_entries; i++) {
-            block message = concatenate(lowmc_ciphers[hash_idx].get_prefix(), rawinputblock(i));
-            ciphertexts[i][hash_idx] = lowmc_ciphers[hash_idx].encrypt(message).to_string();
+            ciphertexts[i][hash_idx] = lowmc_ciphers[hash_idx].encrypt(
+                concatenate(prefixes[hash_idx], rawinputblock(i))
+            ).to_string();
         }
     }
     #pragma omp parallel for if(parallel)
@@ -107,22 +108,32 @@ void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-
     bool parallel = batchpir_params_->is_parallel();
 
     for (size_t i = 0; i < w; i++) {
-        aes_ciphers.emplace_back(oc::AES(keys[i]));
+        aes_ciphers.push_back(oc::AES(keys[i]));
     }
 
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
     std::vector<std::vector<string>> ciphertexts(db_entries, std::vector<string>(w));
+    std::vector<std::vector<oc::block>> messages(w, std::vector<oc::block>(db_entries));
 
     #pragma omp parallel for if(parallel) collapse(2)
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         for (uint64_t i = 0; i < db_entries; i++) {
-            auto message_string = concatenate(prefixes[hash_idx], rawinputblock(i)).to_string();
-            uint64_t high_half = std::bitset<64>(message_string.substr(0, 64)).to_ullong();
-            uint64_t low_half = std::bitset<64>(message_string.substr(64)).to_ullong();
-            oc::block message(high_half, low_half);
-            auto c = aes_ciphers[hash_idx].ecbEncBlock(message).get<uint64_t>();
+            auto message = concatenate(prefixes[hash_idx], rawinputblock(i));
+            alignas(16) uint64_t data[2];
+            data[0] = ((message << 64) >> 64).to_ullong();
+            data[1] = (message >> 64).to_ullong();
+            messages[hash_idx][i] = oc::block(_mm_load_si128((__m128i*)data));
+        }
+    }
+    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+        aes_ciphers[hash_idx].ecbEncBlocks(messages[hash_idx], messages[hash_idx]);
+    }
+    #pragma omp parallel for if(parallel)
+    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+        for (uint64_t i = 0; i < db_entries; i++) {
+            auto c = messages[hash_idx][i].get<uint64_t>();
             ciphertexts[i][hash_idx] = std::bitset<64>(c[1]).to_string() + std::bitset<64>(c[0]).to_string();
         }
     }
