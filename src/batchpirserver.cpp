@@ -116,8 +116,6 @@ void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
-    std::vector<std::vector<oc::block>> messages(w, std::vector<oc::block>(db_entries));
-
     std::vector<uint64_t> high_prefixes(w);
     std::vector<string> low_prefixes(w);
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
@@ -132,16 +130,9 @@ void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-
             alignas(16) uint64_t data[2];
             data[0] = block(low_prefixes[hash_idx] + rawinputblock(i).to_string()).to_ullong();
             data[1] = high_prefixes[hash_idx];
-            messages[hash_idx][i] = oc::block(_mm_load_si128((__m128i*)data));
-        }
-    }
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        aes_ciphers[hash_idx].ecbEncBlocks(messages[hash_idx], messages[hash_idx]);
-    }
-    #pragma omp parallel for if(parallel)
-    for (uint64_t i = 0; i < db_entries; i++) {
-        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-            auto c = messages[hash_idx][i].get<uint64_t>();
+            auto c = aes_ciphers[hash_idx].ecbEncBlock(
+                oc::block(_mm_load_si128((__m128i*)data))
+            ).get<uint64_t>();
             append_non_collide_output(c[1], total_buckets, candidate_buckets_array[i]);
             append_non_collide_output(c[0], bucket_size, candidate_positions_array[i]);
         }
