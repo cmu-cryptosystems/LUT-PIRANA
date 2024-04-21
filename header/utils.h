@@ -157,9 +157,20 @@ using namespace DatabaseConstants;
 
     inline void append_non_collide_output(std::string hash_out, size_t mod, std::vector<size_t>& candidates) {
         for (int split = 0; split < hash_out.size() - 10; split++) {
-            size_t idx = std::stoull(hash_out.substr(0, hash_out.size() - split), nullptr, 2) % mod;
+            size_t idx = std::bitset<64>(hash_out.substr(0, hash_out.size() - split)).to_ullong() % mod;
             if (std::find(candidates.begin(), candidates.end(), idx) == candidates.end()) {
                 candidates.emplace_back(idx);
+                return;
+            }
+        }
+        throw std::runtime_error("Error: candidate failed. ");
+    }
+    
+    inline void append_non_collide_output(uint64_t hash_out, size_t mod, std::vector<size_t>& candidates) {
+        for (int split = 0; split < 64 - 10; split++) {
+            size_t idx = (hash_out >> split) % mod;
+            if (std::find(candidates.begin(), candidates.end(), idx) == candidates.end()) {
+                candidates.push_back(idx);
                 return;
             }
         }
@@ -172,6 +183,13 @@ using namespace DatabaseConstants;
         for (auto& ciphertext: ciphertexts) {
             append_non_collide_output(ciphertext.substr(0, ciphertext.size() / 2), total_buckets, candidate_buckets);
             append_non_collide_output(ciphertext.substr(ciphertext.size() / 2), bucket_size, candidate_position);
+        }
+    }
+    
+    inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<std::pair<string, string>>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
+        for (auto& ciphertext: ciphertexts) {
+            append_non_collide_output(ciphertext.first, total_buckets, candidate_buckets);
+            append_non_collide_output(ciphertext.second, bucket_size, candidate_position);
         }
     }
     
