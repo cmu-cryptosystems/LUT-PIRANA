@@ -73,4 +73,31 @@ namespace utils {
         cuckoo_insert(old, attempt + 1, key_to_buckets, bucket_to_key);
         return true;
     }
+
+    bool cuckoo_insert(uint64_t key, size_t attempt, std::vector<std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key)
+    {
+        if (attempt > DatabaseConstants::MaxAttempts)
+        {
+            throw std::invalid_argument("Error: Cuckoo hashing failed");
+            return false;
+        }
+
+        for (auto v : key_to_buckets[key])
+        {
+            if (bucket_to_key.find(v) == bucket_to_key.end())
+            {
+                bucket_to_key[v] = key;
+                return true;
+            }
+        }
+
+        std::vector<size_t> candidate_buckets = key_to_buckets[key];
+        int idx = rand() % candidate_buckets.size();
+        auto picked_bucket = candidate_buckets[idx];
+        auto old = bucket_to_key[picked_bucket];
+        bucket_to_key[picked_bucket] = key;
+
+        cuckoo_insert(old, attempt + 1, key_to_buckets, bucket_to_key);
+        return true;
+    }
 }

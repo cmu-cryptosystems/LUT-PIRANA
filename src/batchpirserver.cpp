@@ -160,11 +160,6 @@ void BatchPIRServer::hash_encode() {
     
     srand(time(nullptr));
 
-    std::unordered_map<uint64_t, std::vector<size_t>> key_to_position;
-    for (uint64_t i = 0; i < db_entries; i++) {
-        key_to_position[i] = candidate_positions_array[i];
-    }
-
     std::vector<std::vector<uint64_t>> insert_buffer(total_buckets);
     for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++)
         insert_buffer.reserve(bucket_size);
@@ -180,7 +175,7 @@ void BatchPIRServer::hash_encode() {
     #pragma omp parallel for if(parallel)
     for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++) {
         for (auto& i: insert_buffer[bucket_idx]) {
-            cuckoo_insert(i, 0, key_to_position, position_to_key[bucket_idx]);
+            cuckoo_insert(i, 0, candidate_positions_array, position_to_key[bucket_idx]);
         }
     }
 }
@@ -232,7 +227,7 @@ void BatchPIRServer::prepare_pir_server()
             const size_t entry_size = utils::datablock_size;
             encoded_columns[hash_idx].resize(subbucket_size, vector<Plaintext>(num_columns_per_entry));
             
-            #pragma omp parallel for if(parallel)
+            #pragma omp parallel for if(parallel) collapse(2)
             for (auto column = 0; column < subbucket_size; column++) {
                 for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                     size_t start = slot_idx * size_of_coeff;
@@ -253,7 +248,6 @@ void BatchPIRServer::prepare_pir_server()
                     }
                     batch_encoder_->encode(plain_col, encoded_columns[hash_idx][column][slot_idx]);
                 }
-                
             }
 
             #pragma omp parallel for collapse(2) if(parallel)

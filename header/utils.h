@@ -178,6 +178,7 @@ using namespace DatabaseConstants;
     }
 
     bool cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
+    bool cuckoo_insert(uint64_t key, size_t attempt, std::vector<std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
     
     inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
         for (auto& ciphertext: ciphertexts) {
