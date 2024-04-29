@@ -148,8 +148,8 @@ void BatchPIRServer::hash_encode() {
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
     }
-    
-    srand(time(nullptr));
+
+    srand(time(nullptr)); // Used for local cuckoo hashing, no need to be cryptographically secure. 
 
     std::vector<std::vector<uint64_t>> insert_buffer(total_buckets);
     for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++)
@@ -341,6 +341,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
                 evaluator_->transform_from_ntt_inplace(response[hash_idx][slot_idx]);
+                NoiseFloodInplace(response[hash_idx][slot_idx], *context_); // Ensure Function Privacy
                 evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
             }
         } else {

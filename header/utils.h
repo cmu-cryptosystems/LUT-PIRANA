@@ -209,21 +209,12 @@ using namespace DatabaseConstants;
         if (type == PIRANA)
             switch (LUT_OUTPUT_SIZE) {
                 case 16:
-                    PlaintextModBitss = LUT_OUTPUT_SIZE + 1;
-                    CoeffMods = vector<int>{45, 45, 50};
-                    break;
                 case 18: 
-                    PlaintextModBitss = LUT_OUTPUT_SIZE + 2;
+                    PlaintextModBitss = 20;
                     CoeffMods = vector<int>{45, 45, 50};
                     break;
                 case 20:
-                    PlaintextModBitss = 18;
-                    CoeffMods = vector<int>{40, 40, 40};
-                    break;
                 case 22:
-                    PlaintextModBitss = 18;
-                    CoeffMods = vector<int>{40, 40, 40};
-                    break;
                 case 24:
                     PlaintextModBitss = 18;
                     CoeffMods = vector<int>{40, 40, 40};
@@ -299,6 +290,18 @@ using namespace DatabaseConstants;
     }
 
 
+    // Ported from https://github.com/secretflow/spu/blob/94bd4b91cee598003ad2c297def62507b78aa01f/libspu/mpc/cheetah/arith/simd_mul_prot.cc
+    void NoiseFloodInplace(Ciphertext &ct, const SEALContext &context);
+    // sample x \in [0, 2^{nbits}) uniformly, and store in limbs
+    void SampleLimbs(std::vector<uint64_t> dest,
+                    const seal::EncryptionParameters &parms, size_t nbits,
+                    std::shared_ptr<seal::UniformRandomGenerator> prng = nullptr);
+    // sample x \in [-2{nbits}, 2^{nbits}) uniformly, and store in the RNS format
+    // NOTE: x < 0 is stored as Q - 2^{nbits} + x
+    void SampleRanomRNS(
+        std::vector<uint64_t> dest, const seal::SEALContext::ContextData &context,
+        size_t nbits, bool is_ntt,
+        std::shared_ptr<seal::UniformRandomGenerator> prng = nullptr);
 
 } // namespace utils
 
