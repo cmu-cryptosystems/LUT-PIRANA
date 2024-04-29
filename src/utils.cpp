@@ -103,8 +103,7 @@ namespace utils {
         return true;
     }
 
-    // This is the highest we can support
-    constexpr int kNoiseFloodBits = 35;
+    constexpr int kNoiseFloodBits = 40;
 
     // sample r <- [0, 2^{nbits})
     void SampleLimbs(std::vector<uint64_t> dest,
