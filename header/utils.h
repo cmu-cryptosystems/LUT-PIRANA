@@ -198,9 +198,12 @@ using namespace DatabaseConstants;
         product_acum = product_acum + static_cast<__uint128_t>(op1) * static_cast<__uint128_t>(op2); 
     }
 
-    inline seal::EncryptionParameters create_encryption_parameters(string selection = "", BatchPirType type = PIRANA, bool verbose = false)
+    constexpr int kFloodingBits = 34;
+
+    inline std::pair<seal::EncryptionParameters, uint64_t> create_encryption_parameters(string selection = "", BatchPirType type = PIRANA, bool verbose = false)
     {
         seal::EncryptionParameters seal_params(seal::scheme_type::bfv);
+        uint64_t noise_bits = 0;
 
         // Generally this parameter selection will work
         // smaller p & bigger q -> higher depth
@@ -217,7 +220,8 @@ using namespace DatabaseConstants;
                 case 22:
                 case 24:
                     PlaintextModBitss = 18;
-                    CoeffMods = vector<int>{40, 40, 40};
+                    CoeffMods = vector<int>{50, 50, 50, 50};
+                    noise_bits = 131;
                     break;
                 default:
                     throw std::runtime_error("Error: LUT_OUTPUT_SIZE not supported");
@@ -227,6 +231,12 @@ using namespace DatabaseConstants;
 
         seal_params.set_coeff_modulus(CoeffModulus::Create(PolyDegree, CoeffMods));
         seal_params.set_plain_modulus(PlainModulus::Batching(PolyDegree, PlaintextModBitss));
+
+        // show modulus
+        // cout << fmt::format("plain_modulus={}", seal_params.plain_modulus().value()) << endl;
+        // for (int i = 0; i < seal_params.coeff_modulus().size(); i++) {
+        //     cout << fmt::format("coeff_modulus[{}]={}", i, seal_params.coeff_modulus()[i].value()) << endl;
+        // }
 
         if (verbose) {
             std::cout << "+---------------------------------------------------+" << std::endl;
@@ -248,7 +258,7 @@ using namespace DatabaseConstants;
             std::cout << "|  seal_params_.plain_modulus().bit_count = " << seal_params.plain_modulus().bit_count() << std::endl;
             std::cout << "+---------------------------------------------------+" << std::endl;
         }
-    return seal_params;
+    return {seal_params, noise_bits};
     }
 
     inline void multiply_poly_acum(const uint64_t *ct_ptr, const uint64_t *pt_ptr, size_t size, uint128_t *result) {
@@ -290,16 +300,16 @@ using namespace DatabaseConstants;
     }
 
 
-    // Ported from https://github.com/secretflow/spu/blob/94bd4b91cee598003ad2c297def62507b78aa01f/libspu/mpc/cheetah/arith/simd_mul_prot.cc
-    void NoiseFloodInplace(Ciphertext &ct, const SEALContext &context);
+    // Ported from https://github.com/secretflow/spu/blob/94bd4b91cee598003ad2c297def62507b78aa01f/libspu/mpc/cheetah/arith/simd_mul_prot.h
+    void NoiseFloodInplace(Ciphertext &ct, const SEALContext &context, size_t noise_bits);
     // sample x \in [0, 2^{nbits}) uniformly, and store in limbs
-    void SampleLimbs(std::vector<uint64_t> dest,
+    void SampleLimbs(std::vector<uint64_t>& dest,
                     const seal::EncryptionParameters &parms, size_t nbits,
                     std::shared_ptr<seal::UniformRandomGenerator> prng = nullptr);
     // sample x \in [-2{nbits}, 2^{nbits}) uniformly, and store in the RNS format
     // NOTE: x < 0 is stored as Q - 2^{nbits} + x
     void SampleRanomRNS(
-        std::vector<uint64_t> dest, const seal::SEALContext::ContextData &context,
+        std::vector<uint64_t>& dest, const seal::SEALContext::ContextData &context,
         size_t nbits, bool is_ntt,
         std::shared_ptr<seal::UniformRandomGenerator> prng = nullptr);
 

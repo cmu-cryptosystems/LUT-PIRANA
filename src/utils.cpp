@@ -103,43 +103,42 @@ namespace utils {
         return true;
     }
 
-    constexpr int kNoiseFloodBits = 40;
 
     // sample r <- [0, 2^{nbits})
-    void SampleLimbs(std::vector<uint64_t> dest,
+    void SampleLimbs(std::vector<uint64_t>& dest,
                     const seal::EncryptionParameters& parms, size_t nbits,
                     std::shared_ptr<seal::UniformRandomGenerator> prng) {
-    const auto& coeff_modulus = parms.coeff_modulus();
-    size_t num_modulus = coeff_modulus.size();
-    size_t logQ = 0;
-    for (const auto& p : coeff_modulus) {
-        logQ += p.bit_count();
-    }
-    size_t coeff_count = dest.size() / num_modulus;
-    size_t numelt = seal::util::mul_safe(coeff_count, num_modulus);
-    assert (dest.size() == numelt);
-    assert (nbits > 0 && logQ > nbits);
+        const auto& coeff_modulus = parms.coeff_modulus();
+        size_t num_modulus = coeff_modulus.size();
+        size_t logQ = 0;
+        for (const auto& p : coeff_modulus) {
+            logQ += p.bit_count();
+        }
+        size_t coeff_count = dest.size() / num_modulus;
+        size_t numelt = seal::util::mul_safe(coeff_count, num_modulus);
+        assert (dest.size() == numelt);
+        assert (nbits > 0 && logQ > nbits);
 
-    const size_t num_limbs = (nbits + 63) / 64UL;
-    const uint64_t msb_mask =
-        (static_cast<uint64_t>(1) << (nbits - 64 * (num_limbs - 1))) - 1;
-    size_t rnd_byte_count = seal::util::mul_safe(num_limbs, sizeof(uint64_t));
+        const size_t num_limbs = (nbits + 63) / 64UL;
+        const uint64_t msb_mask =
+            (static_cast<uint64_t>(1) << (nbits - 64 * (num_limbs - 1))) - 1;
+        size_t rnd_byte_count = seal::util::mul_safe(num_limbs, sizeof(uint64_t));
 
-    if (!prng) {
-        prng = parms.random_generator()->create();
+        if (!prng) {
+            prng = parms.random_generator()->create();
+        }
+
+        auto* dest_ptr = dest.data();
+        for (size_t i = 0; i < coeff_count; ++i) {
+            prng->generate(rnd_byte_count,
+                        reinterpret_cast<seal::seal_byte*>(dest_ptr));
+            dest_ptr[num_limbs - 1] &= msb_mask;
+            std::fill_n(dest_ptr + num_limbs, num_modulus - num_limbs, 0);
+            dest_ptr += num_modulus;
+        }
     }
 
-    auto* dest_ptr = dest.data();
-    for (size_t i = 0; i < coeff_count; ++i) {
-        prng->generate(rnd_byte_count,
-                    reinterpret_cast<seal::seal_byte*>(dest_ptr));
-        dest_ptr[num_limbs - 1] &= msb_mask;
-        std::fill_n(dest_ptr + num_limbs, num_modulus - num_limbs, 0);
-        dest_ptr += num_modulus;
-    }
-    }
-
-    void SampleRanomRNS(std::vector<uint64_t> dest,
+    void SampleRanomRNS(std::vector<uint64_t>& dest,
                     const seal::SEALContext::ContextData& context, size_t nbits,
                     bool is_ntt,
                     std::shared_ptr<seal::UniformRandomGenerator> prng) {
@@ -194,35 +193,28 @@ namespace utils {
         }
     }
 
-    void NoiseFloodInplace(Ciphertext &ct, const SEALContext &context) {
-    assert(seal::is_metadata_valid_for(ct, context));
-    assert(ct.size() == 2);
-    auto context_data = context.get_context_data(ct.parms_id());
-    assert(context_data.get() != nullptr);
+    void NoiseFloodInplace(Ciphertext &ct, const SEALContext &context, size_t noise_bits) {
+        assert(seal::is_metadata_valid_for(ct, context));
+        assert(ct.size() == 2);
+        auto context_data = context.get_context_data(ct.parms_id());
+        assert(context_data.get() != nullptr);
 
-    size_t num_coeffs = ct.poly_modulus_degree();
-    size_t num_modulus = ct.coeff_modulus_size();
+        size_t num_coeffs = ct.poly_modulus_degree();
+        size_t num_modulus = ct.coeff_modulus_size();
+        const auto &modulus = context_data->parms().coeff_modulus();
 
-    // e * m for (semi-honest noise) e ~ Gaussian(0, stddev=3.19) and plaintext m
-    // \in [-p/2, p/2).
-    // |e * m| is bounded by 2*sqrt{N} * 6*stddev * p/2
-    size_t noise_bits = 
-        kNoiseFloodBits + (context_data->parms().plain_modulus().bit_count() - 1) +
-        std::ceil(
-            std::log2(2. * std::sqrt(ct.poly_modulus_degree()) * 6. * seal::util::seal_he_std_parms_error_std_dev));
+        std::vector<uint64_t> wide_noise(num_coeffs * num_modulus);
 
-    std::vector<uint64_t> wide_noise(num_coeffs * num_modulus);
+        // sample r from [-2^{k-1}, 2^{k-1}]
+        SampleRanomRNS(wide_noise, *context_data, noise_bits - 1, ct.is_ntt_form());
 
-    // sample r from [-2^{k-1}, 2^{k-1}]
-    SampleRanomRNS(wide_noise, *context_data, noise_bits - 1, ct.is_ntt_form());
-    const auto &modulus = context_data->parms().coeff_modulus();
-
-    seal::util::add_poly_coeffmod(
-        {wide_noise.data(), num_coeffs},
-        {ct.data(0), num_coeffs}, 
-        num_modulus, 
-        modulus,
-        {ct.data(0), num_coeffs});
+        seal::util::add_poly_coeffmod(
+            {wide_noise.data(), num_coeffs},
+            {ct.data(0), num_coeffs}, 
+            num_modulus, 
+            modulus,
+            {ct.data(0), num_coeffs});
+    
     }
 
 

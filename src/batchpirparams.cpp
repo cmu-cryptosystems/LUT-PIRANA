@@ -13,7 +13,7 @@ BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type,
       PIRANA_k(pirana_k) {
 
     std::string selection = std::to_string(batch_size) + "," + std::to_string(DBSize) + "," + std::to_string(utils::datablock_size);
-    seal_params_ = utils::create_encryption_parameters(selection, type);
+    std::tie(seal_params_, noise_bits) = utils::create_encryption_parameters(selection, type);
     auto max_slots = PolyDegree;
     auto num_buckets = get_num_buckets();
     size_t num_slots_per_entry = get_num_slots_per_entry();

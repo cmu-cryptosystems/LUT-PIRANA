@@ -27,6 +27,7 @@ public:
     void set_first_dimension_size();
     void print_params() const;
     std::vector<size_t> query_size, response_size;
+    uint64_t noise_bits;
 
 private:
     int batch_size_= 0;

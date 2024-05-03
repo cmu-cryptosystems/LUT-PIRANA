@@ -338,10 +338,12 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                     evaluator_->multiply_plain(mask, encoded_columns[hash_idx][column][slot_idx], masked_value[slot_idx][column]);
                 }
             }
+            #pragma omp parallel for if(parallel)
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
                 evaluator_->transform_from_ntt_inplace(response[hash_idx][slot_idx]);
-                NoiseFloodInplace(response[hash_idx][slot_idx], *context_); // Ensure Function Privacy
+                NoiseFloodInplace(response[hash_idx][slot_idx], *context_, batchpir_params_->noise_bits);
+                evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
                 evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
             }
         } else {
