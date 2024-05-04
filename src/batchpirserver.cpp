@@ -344,7 +344,8 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                 evaluator_->transform_from_ntt_inplace(response[hash_idx][slot_idx]);
                 NoiseFloodInplace(response[hash_idx][slot_idx], *context_, batchpir_params_->noise_bits);
                 evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
-                evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
+                if (batchpir_params_->get_seal_parameters().coeff_modulus().size() > 3)
+                    evaluator_->mod_switch_to_next_inplace(response[hash_idx][slot_idx]); // reduce ciphertext space
             }
         } else {
             int previous_idx = 0;

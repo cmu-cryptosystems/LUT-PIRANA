@@ -215,13 +215,14 @@ using namespace DatabaseConstants;
                 case 18: 
                     PlaintextModBitss = 20;
                     CoeffMods = vector<int>{45, 45, 50};
+                    noise_bits = 69;
                     break;
                 case 20:
                 case 22:
                 case 24:
                     PlaintextModBitss = 18;
-                    CoeffMods = vector<int>{50, 50, 50, 50};
-                    noise_bits = 131;
+                    CoeffMods = vector<int>{52, 52, 52, 52};
+                    noise_bits = 137;
                     break;
                 default:
                     throw std::runtime_error("Error: LUT_OUTPUT_SIZE not supported");
