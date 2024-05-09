@@ -62,7 +62,7 @@ size_t BatchPirParams::get_num_buckets() {
 }
 
 size_t BatchPirParams::get_bucket_size() {
-    return ceil(CuckooFactorBucket * NumHashFunctions * DBSize / get_num_buckets());
+    return ceil(CuckooFactorBucket * MaxBucketSize);
 }
 
 size_t BatchPirParams::get_first_dimension_size() {
