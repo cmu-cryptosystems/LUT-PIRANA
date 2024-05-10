@@ -215,38 +215,7 @@ void BatchPIRServer::prepare_pir_server()
 
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         if (type == PIRANA) {
-            const size_t entry_size = utils::datablock_size;
-            encoded_columns[hash_idx].resize(subbucket_size, vector<Plaintext>(num_columns_per_entry));
-            
-            #pragma omp parallel for if(parallel) collapse(2)
-            for (auto column = 0; column < subbucket_size; column++) {
-                for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                    size_t start = slot_idx * size_of_coeff;
-                    size_t end = std::min((slot_idx + 1) * size_of_coeff, entry_size);
-                    vector<uint64_t> plain_col;
-                    plain_col.reserve(num_buckets * num_subbucket);
-                    for (auto bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
-                        for (size_t subbucket_idx = 0; subbucket_idx < num_subbucket; subbucket_idx++) {
-                            size_t selected_column = subbucket_idx*subbucket_size + column;
-                            if (selected_column > buckets_[hash_idx][bucket_idx].size()) {
-                                plain_col.push_back(0);
-                            } else {
-                                string sub = buckets_[hash_idx][bucket_idx][selected_column].to_string().substr(start, end - start);
-                                uint64_t item = std::stoull(sub, 0, 2);
-                                plain_col.push_back(item);
-                            }
-                        }
-                    }
-                    batch_encoder_->encode(plain_col, encoded_columns[hash_idx][column][slot_idx]);
-                }
-            }
-
-            #pragma omp parallel for collapse(2) if(parallel)
-            for (int column = 0; column < subbucket_size; column++) {
-                for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                    evaluator_->transform_to_ntt_inplace(encoded_columns[hash_idx][column][slot_idx], pid);
-                }
-            }
+            continue;
         } else {
             auto previous_idx = 0;
             for (int i = 0; i < num_servers; i++)
@@ -299,6 +268,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     size_t bucket_size = batchpir_params_->get_bucket_size();
     size_t num_subbucket = PolyDegree / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
+    size_t num_tasks_per_group = ceil(subbucket_size * 1.0 / NumTaskGroups);
     const auto [m, k] = batchpir_params_->get_PIRANA_params();
     const auto w = NumHashFunctions;
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
@@ -308,36 +278,69 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
     bool parallel = batchpir_params_->is_parallel();
+    const int size_of_coeff = plaint_bit_count_ - 1;
+    auto pid = context_->first_parms_id();
 
-    vector<PIRResponseList> response(w);
+    vector<PIRResponseList> response(w, PIRResponseList(num_columns_per_entry));
 
     for (int hash_idx = 0; hash_idx < w; hash_idx++) {
         if (type == PIRANA) {
-            masked_value.clear();
-            masked_value.resize(num_columns_per_entry, PIRResponseList(subbucket_size));
-            response[hash_idx].resize(num_columns_per_entry);
+            vector<PIRResponseList> masked_value(num_columns_per_entry, PIRResponseList(NumTaskGroups));
 
-            vector<vector<Ciphertext>> c_to_mul(subbucket_size);
+            vector<vector<long>> query_indices(subbucket_size);
             for (int column=0; column < subbucket_size; column++) {
-                auto code = utils::get_perfect_constant_weight_codeword(column, m, k);
-                for (int code_idx = 0; code_idx < m; code_idx++) {
-                    if (code[code_idx] == 1ULL) {
-                        c_to_mul[column].push_back(queries[hash_idx][0][code_idx]);
-                    }
-                }
+                query_indices[column] = get_perfect_constant_weight_codeword_position(column, m, k);
             }
 
             #pragma omp parallel for if(parallel)
-            for (int column=0; column < subbucket_size; column++) {
-                Ciphertext mask;
-                
-                evaluator_->multiply_many(c_to_mul[column], client_keys_[client_id], mask);
-                evaluator_->transform_to_ntt_inplace(mask);
-                // Get column
-                for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                    evaluator_->multiply_plain(mask, encoded_columns[hash_idx][column][slot_idx], masked_value[slot_idx][column]);
+            for (int thread_idx = 0; thread_idx < NumTaskGroups; thread_idx++) {
+                size_t col_start = thread_idx * num_tasks_per_group;
+                size_t col_end = std::min((thread_idx + 1) * num_tasks_per_group, subbucket_size);
+
+                for (int sub_column=0; sub_column < col_end - col_start; sub_column++) {
+                    int column = col_start + sub_column;
+                    Ciphertext mask;
+
+                    vector<Ciphertext> selected_queries(query_indices[column].size());
+                    std::transform(query_indices[column].begin(), query_indices[column].end(), selected_queries.begin(), [&](long idx) {
+                        return queries[hash_idx][0][idx];
+                    });
+                    
+                    evaluator_->multiply_many(selected_queries, client_keys_[client_id], mask);
+                    evaluator_->transform_to_ntt_inplace(mask);
+                    
+                    for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
+                        size_t start = slot_idx * size_of_coeff;
+                        size_t end = std::min((slot_idx + 1) * size_of_coeff, (size_t)datablock_size);
+                        vector<uint64_t> plain_col;
+                        plain_col.reserve(num_buckets * num_subbucket);
+                        for (auto bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
+                            for (size_t subbucket_idx = 0; subbucket_idx < num_subbucket; subbucket_idx++) {
+                                size_t selected_column = subbucket_idx*subbucket_size + column;
+                                if (selected_column > buckets_[hash_idx][bucket_idx].size()) {
+                                    plain_col.push_back(0);
+                                } else {
+                                    string sub = buckets_[hash_idx][bucket_idx][selected_column].to_string().substr(start, end - start);
+                                    uint64_t item = std::stoull(sub, 0, 2);
+                                    plain_col.push_back(item);
+                                }
+                            }
+                        }
+                        Plaintext pt;
+                        Ciphertext masked_value_thread;
+                        batch_encoder_->encode(plain_col, pt);
+                        evaluator_->transform_to_ntt_inplace(pt, pid);
+                        evaluator_->multiply_plain(mask, pt, masked_value_thread);
+
+                        if (sub_column == 0) {
+                            masked_value[slot_idx][thread_idx] = masked_value_thread;
+                        } else {
+                            evaluator_->add_inplace(masked_value[slot_idx][thread_idx], masked_value_thread);
+                        }
+                    }
                 }
             }
+            
             #pragma omp parallel for if(parallel)
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);

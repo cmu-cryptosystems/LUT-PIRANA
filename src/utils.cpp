@@ -30,8 +30,17 @@ namespace utils {
         return r;
     }
 
-    std::vector<uint64_t> get_perfect_constant_weight_codeword(uint64_t __number, uint64_t encoding_size, uint64_t hamming_weight, bool __verbose){
-        vector<uint64_t> ans(encoding_size, 0ULL);
+    std::vector<bool> get_perfect_constant_weight_codeword(uint64_t __number, uint64_t encoding_size, uint64_t hamming_weight, bool __verbose){
+        vector<bool> ans(encoding_size, 0);
+        auto code_position = get_perfect_constant_weight_codeword_position(__number, encoding_size, hamming_weight, __verbose);
+        for (auto& pos: code_position) {
+            ans[pos] = 1;
+        }
+        return ans;
+    }
+
+    std::vector<long> get_perfect_constant_weight_codeword_position(uint64_t __number, uint64_t encoding_size, uint64_t hamming_weight, bool __verbose){
+        vector<long> ans;
         uint64_t mod_size = choose(encoding_size, hamming_weight);
         if (__number >= mod_size){
             if (__verbose) 
@@ -41,7 +50,7 @@ namespace utils {
         long remainder = __number, k_prime = hamming_weight;
         for (long pointer=encoding_size-1; pointer>=0; pointer--){
             if (remainder >= choose(pointer, k_prime)){
-                ans[pointer] = 1ULL;
+                ans.push_back(pointer);
                 remainder -= choose(pointer, k_prime);
                 k_prime -= 1;
             }

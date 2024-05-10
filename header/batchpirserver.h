@@ -72,12 +72,10 @@ private:
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
     array<vector<EncodedDB>, DatabaseConstants::NumHashFunctions> buckets_;
-    array<vector<vector<Plaintext>>, DatabaseConstants::NumHashFunctions> encoded_columns; // column, slot
     bool is_db_populated;
     bool hash_encoded;
     bool is_client_keys_set_;
     std::vector<std::unordered_map<uint64_t, uint64_t>> position_to_key;
-    vector<PIRResponseList> masked_value;
 
     osuCrypto::PRNG* prng_;
 

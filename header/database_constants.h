@@ -40,6 +40,7 @@ namespace DatabaseConstants {
                 throw std::runtime_error("Unsupported LUT_OUTPUT_SIZE");
         }
     }();
+    constexpr int NumTaskGroups = 128;
 
 }
 

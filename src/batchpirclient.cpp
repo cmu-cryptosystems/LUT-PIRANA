@@ -48,7 +48,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
             // queries[1..w][1..m] is a ciphertext
             // Push the batch into the queries
             vector<vector<uint64_t>> q(m, vector<uint64_t>(num_buckets * num_subbucket, 0));
-            vector<vector<uint64_t>> codes(num_buckets);
+            vector<vector<bool>> codes(num_buckets);
             for (int bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++)
             {
                 size_t subbucket_idx = bucket_to_position[bucket_idx][hash_idx] / subbucket_size;
