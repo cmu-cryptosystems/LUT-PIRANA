@@ -36,6 +36,8 @@ namespace DatabaseConstants {
                 return 556;
             case 24:
                 return 6798;
+            case 28:
+                return 100890;
             default:
                 throw std::runtime_error("Unsupported LUT_OUTPUT_SIZE");
         }

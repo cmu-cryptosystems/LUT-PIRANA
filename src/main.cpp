@@ -81,7 +81,9 @@ int batchpir_main(int argc, char* argv[])
     BatchPIRServer batch_server(params, prng);
     BatchPIRClient batch_client(params);
 
+    cout << "Main: Populating Raw DB " << (iteration + 1) << "." << endl;
     batch_server.populate_raw_db();
+    cout << "Main: Initialization start " << (iteration + 1) << "." << endl;
     auto start = chrono::high_resolution_clock::now();
 
     if (params.get_hash_type() == HashType::LowMC) {

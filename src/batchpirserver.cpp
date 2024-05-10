@@ -46,6 +46,7 @@ void BatchPIRServer::populate_raw_db(std::function<rawdatablock(size_t)> generat
     rawdb_.resize(db_entries);
 
     // Populate the rawdb vector with entries
+    #pragma omp parallel for
     for (size_t i = 0; i < db_entries; ++i)
     {
         rawdb_[i] = generator(i);
