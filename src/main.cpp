@@ -61,21 +61,17 @@ int batchpir_main(int argc, char* argv[])
 
     osuCrypto::PRNG prng(osuCrypto::sysRandomSeed());
 
-    vector<keyblock> lowmc_keys; 
-    vector<prefixblock> lowmc_prefixes; 
-    vector<oc::block> aes_keys;
-    vector<std::bitset<128-DatabaseConstants::InputLength>> aes_prefixes;
+    keyblock lowmc_key; 
+    prefixblock lowmc_prefix; 
+    oc::block aes_key;
+    std::bitset<128-DatabaseConstants::InputLength> aes_prefix;
 
     if (params.get_hash_type() == HashType::LowMC) {
-        for (size_t i = 0; i < NumHashFunctions; i++) {
-            lowmc_keys.emplace_back(random_bitset<keysize>(&prng));
-            lowmc_prefixes.emplace_back(random_bitset<prefixsize>(&prng));
-        }
+        lowmc_key = random_bitset<keysize>(&prng);
+        lowmc_prefix = random_bitset<prefixsize>(&prng);
     } else {
-        for (size_t i = 0; i < NumHashFunctions; i++) {
-            aes_keys.emplace_back(prng.get<oc::block>());
-            aes_prefixes.emplace_back(random_bitset<128-DatabaseConstants::InputLength>(&prng));
-        }
+        aes_key = prng.get<oc::block>();
+        aes_prefix = random_bitset<128-DatabaseConstants::InputLength>(&prng);
     }
 
     BatchPIRServer batch_server(params, prng);
@@ -87,9 +83,9 @@ int batchpir_main(int argc, char* argv[])
     auto start = chrono::high_resolution_clock::now();
 
     if (params.get_hash_type() == HashType::LowMC) {
-        batch_server.lowmc_prepare(lowmc_keys, lowmc_prefixes);
+        batch_server.lowmc_prepare(lowmc_key, lowmc_prefix);
     } else {
-        batch_server.aes_prepare(aes_keys, aes_prefixes);
+        batch_server.aes_prepare(aes_key, aes_prefix);
     }
 
     batch_server.initialize();
@@ -100,24 +96,20 @@ int batchpir_main(int argc, char* argv[])
 
     // preparing queries
     vector<rawinputblock> plain_queries(choice[0]);
-    vector<vector<string>> batch(choice[0]);
+    vector<string> batch(choice[0]);
     for (int i = 0; i < choice[0]; i++)
     {
         plain_queries[i] = rawinputblock(choice[1] - (choice[0] / 2) + i);
-        for (int j = 0; j < NumHashFunctions; j++)
-        {
-            if (params.get_hash_type() == HashType::LowMC) {
-                auto message = utils::concatenate(lowmc_prefixes[j], plain_queries[i]);
-                auto ciphertext = batch_server.lowmc_ciphers[j].encrypt(message).to_string();
-                batch[i].push_back(ciphertext);
-            } else {
-                auto message_string = concatenate(aes_prefixes[j], plain_queries[i]).to_string();
-                uint64_t high_half = std::bitset<64>(message_string.substr(0, 64)).to_ullong();
-                uint64_t low_half = std::bitset<64>(message_string.substr(64)).to_ullong();
-                oc::block message(high_half, low_half);
-                auto c = batch_server.aes_ciphers[j].ecbEncBlock(message).get<uint64_t>();
-                batch[i].push_back(std::bitset<64>(c[1]).to_string() + std::bitset<64>(c[0]).to_string());
-            }
+        if (params.get_hash_type() == HashType::LowMC) {
+            auto message = utils::concatenate(lowmc_prefix, plain_queries[i]);
+            batch[i] = batch_server.lowmc_oprf->encrypt(message).to_string();
+        } else {
+            auto message_string = concatenate(aes_prefix, plain_queries[i]).to_string();
+            uint64_t high_half = std::bitset<64>(message_string.substr(0, 64)).to_ullong();
+            uint64_t low_half = std::bitset<64>(message_string.substr(64)).to_ullong();
+            oc::block message(high_half, low_half);
+            auto c = batch_server.aes_oprf->ecbEncBlock(message).get<uint64_t>();
+            batch[i] = std::bitset<64>(c[1]).to_string() + std::bitset<64>(c[0]).to_string();
         }
     }
 

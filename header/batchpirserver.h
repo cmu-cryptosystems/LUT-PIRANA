@@ -29,8 +29,8 @@ public:
     void initialize();
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset_insecure<DatabaseConstants::OutputLength>(); });
    
-    std::vector<utils::LowMC> lowmc_ciphers;
-    std::vector<oc::AES> aes_ciphers;
+    utils::LowMC* lowmc_oprf;
+    oc::AES* aes_oprf;
     std::array<std::vector<rawinputblock>, DatabaseConstants::NumHashFunctions> index_masks;
     std::array<std::vector<rawdatablock>, DatabaseConstants::NumHashFunctions> entry_masks;
     std::vector<std::vector<size_t>> candidate_buckets_array;
@@ -65,8 +65,8 @@ public:
         return buffer;
     }
     
-    void lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes);
-    void aes_prepare(vector<oc::block> keys, vector<std::bitset<128-DatabaseConstants::InputLength>> prefixes);
+    void lowmc_prepare(keyblock oprf_key, prefixblock oprf_prefix = 0);
+    void aes_prepare(oc::block oprf_key, std::bitset<128-DatabaseConstants::InputLength> oprf_prefix = 0);
 
 private:
     BatchPirParams *batchpir_params_;

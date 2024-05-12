@@ -87,12 +87,12 @@ using namespace DatabaseConstants;
     return vec;
     }
     
-    inline std::size_t hash_mod(size_t id, size_t nonce, size_t data, size_t total_buckets){
+    inline std::size_t hash_mod(size_t id, size_t nonce, string data, size_t total_buckets){
         std::hash<std::string> hasher1;
-        return hasher1(std::to_string(id) + std::to_string(nonce) + std::to_string(data)) % total_buckets;
+        return hasher1(std::to_string(id) + std::to_string(nonce) + data) % total_buckets;
     }
 
-    inline std::vector<size_t> get_candidate_buckets(size_t data, size_t num_candidates , size_t total_buckets){
+    inline std::vector<size_t> get_candidate_buckets(string data, size_t num_candidates , size_t total_buckets){
         std::vector<size_t> candidate_buckets;
          
         for (int i = 0; i < num_candidates; i++){
@@ -106,6 +106,23 @@ using namespace DatabaseConstants;
         }
 
         return candidate_buckets;
+    }
+
+    
+    inline std::vector<size_t> get_candidate_positions(string data, size_t num_candidates , size_t total_positions){
+        std::vector<size_t> candidate_positions;
+         
+        for (int i = 0; i < num_candidates; i++){
+            size_t nonce = 0;
+            auto position = hash_mod( num_candidates + i, nonce, data, total_positions);
+            while (std::find(candidate_positions.begin(), candidate_positions.end(), position) != candidate_positions.end()){
+                nonce += 1;
+                position = hash_mod( i, nonce, data, total_positions);
+            }
+            candidate_positions.push_back(position);
+        }
+
+        return candidate_positions;
     }
 
     template< size_t size = blocksize>
@@ -157,50 +174,12 @@ using namespace DatabaseConstants;
 
     std::vector<long> get_perfect_constant_weight_codeword_position(uint64_t __number, uint64_t encoding_size, uint64_t hamming_weight, bool __verbose=true);
 
-    inline void append_non_collide_output(std::string hash_out, size_t mod, std::vector<size_t>& candidates) {
-        for (int split = 0; split < hash_out.size() - 10; split++) {
-            size_t idx = std::bitset<64>(hash_out.substr(0, hash_out.size() - split)).to_ullong() % mod;
-            if (std::find(candidates.begin(), candidates.end(), idx) == candidates.end()) {
-                candidates.emplace_back(idx);
-                return;
-            }
-        }
-        throw std::runtime_error("Error: candidate failed. ");
-    }
-    
-    inline void append_non_collide_output(uint64_t hash_out, size_t mod, std::vector<size_t>& candidates) {
-        for (int split = 0; split < 64 - 10; split++) {
-            size_t idx = (hash_out >> split) % mod;
-            if (std::find(candidates.begin(), candidates.end(), idx) == candidates.end()) {
-                candidates.push_back(idx);
-                return;
-            }
-        }
-        throw std::runtime_error("Error: candidate failed. ");
-    }
-
     bool cuckoo_insert(uint64_t key, size_t attempt, std::unordered_map<uint64_t, std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
     bool cuckoo_insert(uint64_t key, size_t attempt, std::vector<std::vector<size_t>>& key_to_buckets, std::unordered_map<uint64_t, uint64_t> &bucket_to_key);
-    
-    inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<string>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
-        for (auto& ciphertext: ciphertexts) {
-            append_non_collide_output(ciphertext.substr(0, ciphertext.size() / 2), total_buckets, candidate_buckets);
-            append_non_collide_output(ciphertext.substr(ciphertext.size() / 2), bucket_size, candidate_position);
-        }
-    }
-    
-    inline void get_candidates_with_hash_values (size_t total_buckets, size_t bucket_size, std::vector<std::pair<string, string>>& ciphertexts, std::vector<size_t>& candidate_buckets, std::vector<size_t>& candidate_position) {
-        for (auto& ciphertext: ciphertexts) {
-            append_non_collide_output(ciphertext.first, total_buckets, candidate_buckets);
-            append_non_collide_output(ciphertext.second, bucket_size, candidate_position);
-        }
-    }
     
     inline void multiply_acum(uint64_t op1, uint64_t op2, __uint128_t& product_acum) {
         product_acum = product_acum + static_cast<__uint128_t>(op1) * static_cast<__uint128_t>(op2); 
     }
-
-    constexpr int kFloodingBits = 34;
 
     inline std::pair<seal::EncryptionParameters, uint64_t> create_encryption_parameters(string selection = "", BatchPirType type = PIRANA, bool verbose = false)
     {

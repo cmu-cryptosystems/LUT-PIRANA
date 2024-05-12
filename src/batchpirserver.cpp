@@ -69,7 +69,7 @@ void BatchPIRServer::initialize_masks() {
     }
 }
 
-void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> prefixes) {
+void BatchPIRServer::lowmc_prepare(keyblock oprf_key, prefixblock oprf_prefix) {
     check(is_db_populated, "Error: Database not populated.");
     auto total_buckets = batchpir_params_->get_num_buckets();
     const auto db_entries = DBSize;
@@ -77,32 +77,25 @@ void BatchPIRServer::lowmc_prepare(vector<keyblock> keys, vector<prefixblock> pr
     auto bucket_size = batchpir_params_->get_bucket_size(); 
     bool parallel = batchpir_params_->is_parallel();
 
-    for (size_t i = 0; i < w; i++) {
-        lowmc_ciphers.emplace_back(utils::LowMC(keys[i], prefixes[i]));
-    }
+    lowmc_oprf = new utils::LowMC(oprf_key, oprf_prefix);
 
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
-    std::vector<string> str_prefixes(w);
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        str_prefixes[hash_idx] = prefixes[hash_idx].to_string();
-    }
+    string str_prefixes = oprf_prefix.to_string();
     uint64_t lowbits_mask = (1ULL << BucketHashLength) - 1;
 
     #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
-        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-            uint64_t c = lowmc_ciphers[hash_idx].encrypt(
-                block(str_prefixes[hash_idx] + rawinputblock(i).to_string())
-            ).to_ullong();
-            append_non_collide_output(c >> BucketHashLength, total_buckets, candidate_buckets_array[i]);
-            append_non_collide_output(c & lowbits_mask, bucket_size, candidate_positions_array[i]);
-        }
+        string oprf_output = lowmc_oprf->encrypt(
+            block(str_prefixes + rawinputblock(i).to_string())
+        ).to_string();
+        candidate_buckets_array[i] = get_candidate_buckets(oprf_output, w, total_buckets);
+        candidate_positions_array[i] = get_candidate_positions(oprf_output, w, bucket_size);
     }
 }
 
-void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-DatabaseConstants::InputLength>> prefixes) {
+void BatchPIRServer::aes_prepare(oc::block oprf_key, std::bitset<128-DatabaseConstants::InputLength> oprf_prefix) {
     check(is_db_populated, "Error: Database not populated.");
     auto total_buckets = batchpir_params_->get_num_buckets();
     const auto db_entries = DBSize;
@@ -110,33 +103,28 @@ void BatchPIRServer::aes_prepare(vector<oc::block> keys, vector<std::bitset<128-
     auto bucket_size = batchpir_params_->get_bucket_size(); 
     bool parallel = batchpir_params_->is_parallel();
 
-    for (size_t i = 0; i < w; i++) {
-        aes_ciphers.push_back(oc::AES(keys[i]));
-    }
+    aes_oprf = new oc::AES(oprf_key);
 
     candidate_buckets_array.resize(db_entries);
     candidate_positions_array.resize(db_entries);
 
-    std::vector<uint64_t> high_prefixes(w);
-    std::vector<string> low_prefixes(w);
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        auto str = prefixes[hash_idx].to_string();
-        high_prefixes[hash_idx] = block(str.substr(0, 64)).to_ullong();
-        low_prefixes[hash_idx] = str.substr(64);
-    }
+    uint64_t high_prefix;
+    string low_prefix;
+    auto str = oprf_prefix.to_string();
+    high_prefix = block(str.substr(0, 64)).to_ullong();
+    low_prefix = str.substr(64);
 
     #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {
-        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-            alignas(16) uint64_t data[2];
-            data[0] = block(low_prefixes[hash_idx] + rawinputblock(i).to_string()).to_ullong();
-            data[1] = high_prefixes[hash_idx];
-            auto c = aes_ciphers[hash_idx].ecbEncBlock(
-                oc::block(_mm_load_si128((__m128i*)data))
-            ).get<uint64_t>();
-            append_non_collide_output(c[1], total_buckets, candidate_buckets_array[i]);
-            append_non_collide_output(c[0], bucket_size, candidate_positions_array[i]);
-        }
+        alignas(16) uint64_t data[2];
+        data[0] = block(low_prefix + rawinputblock(i).to_string()).to_ullong();
+        data[1] = high_prefix;
+        auto c = aes_oprf->ecbEncBlock(
+            oc::block(_mm_load_si128((__m128i*)data))
+        ).get<uint64_t>();
+        auto oprf_output = std::bitset<64>(c[1]).to_string() + std::bitset<64>(c[0]).to_string();
+        candidate_buckets_array[i] = get_candidate_buckets(oprf_output, w, total_buckets);
+        candidate_positions_array[i] = get_candidate_positions(oprf_output, w, bucket_size);
     }
 }
 
@@ -146,9 +134,6 @@ void BatchPIRServer::hash_encode() {
     auto bucket_size = batchpir_params_->get_bucket_size();
     const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
-    }
 
     srand(time(nullptr)); // Used for local cuckoo hashing, no need to be cryptographically secure. 
 
@@ -178,12 +163,17 @@ void BatchPIRServer::hash_encrypt() {
     auto bucket_size = batchpir_params_->get_bucket_size();
     const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
+    auto type = batchpir_params_->get_type();
     
-    #pragma omp parallel for if(parallel) collapse(2)
-    for (int hash_idx = 0; hash_idx < w; hash_idx++) {
-        for(size_t b = 0; b < total_buckets; b++) {
-            for (auto const &[pos, idx] : position_to_key[b]) {
-                buckets_[hash_idx][b][pos] = concatenate(rawinputblock(idx) ^ index_masks[hash_idx][b], rawdb_[idx] ^ entry_masks[hash_idx][b]);
+    if (type == UIUC) {
+        for (int hash_idx = 0; hash_idx < w; hash_idx++) 
+            buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
+        #pragma omp parallel for if(parallel) collapse(2)
+        for (int hash_idx = 0; hash_idx < w; hash_idx++) {
+            for(size_t b = 0; b < total_buckets; b++) {
+                for (auto const &[pos, idx] : position_to_key[b]) {
+                    buckets_[hash_idx][b][pos] = concatenate(rawinputblock(idx) ^ index_masks[hash_idx][b], rawdb_[idx] ^ entry_masks[hash_idx][b]);
+                }
             }
         }
     }
@@ -310,26 +300,36 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                     evaluator_->multiply_many(selected_queries, client_keys_[client_id], mask);
                     evaluator_->transform_to_ntt_inplace(mask);
                     
-                    for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
-                        size_t start = slot_idx * size_of_coeff;
-                        size_t end = std::min((slot_idx + 1) * size_of_coeff, (size_t)datablock_size);
-                        vector<uint64_t> plain_col;
-                        plain_col.reserve(num_buckets * num_subbucket);
-                        for (auto bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
-                            for (size_t subbucket_idx = 0; subbucket_idx < num_subbucket; subbucket_idx++) {
-                                size_t selected_column = subbucket_idx*subbucket_size + column;
-                                if (selected_column > buckets_[hash_idx][bucket_idx].size()) {
-                                    plain_col.push_back(0);
-                                } else {
-                                    string sub = buckets_[hash_idx][bucket_idx][selected_column].to_string().substr(start, end - start);
+                    vector<vector<uint64_t>> plain_col(num_columns_per_entry);
+                    for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) 
+                        plain_col[slot_idx].reserve(num_buckets * num_subbucket);
+
+                    for (size_t bucket_idx = 0; bucket_idx < num_buckets; bucket_idx++) {
+                        for (size_t subbucket_idx = 0; subbucket_idx < num_subbucket; subbucket_idx++) {
+                            size_t selected_column = subbucket_idx*subbucket_size + column;
+                            if (position_to_key[bucket_idx].count(selected_column)) {
+                                // Concatenation of index and data
+                                auto plain_value = 
+                                    (rawinputblock(position_to_key[bucket_idx][selected_column]) ^ index_masks[hash_idx][bucket_idx]).to_string() + 
+                                    (rawdb_[position_to_key[bucket_idx][selected_column]] ^ entry_masks[hash_idx][bucket_idx]).to_string();
+                                for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
+                                    size_t start = slot_idx * size_of_coeff;
+                                    size_t end = std::min((slot_idx + 1) * size_of_coeff, (size_t)datablock_size);
+                                    string sub = plain_value.substr(start, end - start);
                                     uint64_t item = std::stoull(sub, 0, 2);
-                                    plain_col.push_back(item);
+                                    plain_col[slot_idx].push_back(item);
+                                }
+                            } else {
+                                for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
+                                    plain_col[slot_idx].push_back(0);
                                 }
                             }
                         }
+                    }
+                    for (size_t slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                         Plaintext pt;
                         Ciphertext masked_value_thread;
-                        batch_encoder_->encode(plain_col, pt);
+                        batch_encoder_->encode(plain_col[slot_idx], pt);
                         evaluator_->transform_to_ntt_inplace(pt, pid);
                         evaluator_->multiply_plain(mask, pt, masked_value_thread);
 
@@ -373,7 +373,9 @@ bool BatchPIRServer::check_decoded_entries(vector<EncodedDB> entries_list, vecto
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             const auto pos = candidate_positions_array[queries[original_index].to_ullong()][hash_idx];
             auto [index, entry] = utils::split<InputLength>(entries_list[bucket][hash_idx]);
-            utils::check(entries_list[bucket][hash_idx] == buckets_[hash_idx][bucket][pos], fmt::format("Decode problem. {} != {}", entries_list[bucket][hash_idx].to_string(), buckets_[hash_idx][bucket][pos].to_string()));
+            auto gt_entry = 
+                position_to_key[bucket].count(pos) ? concatenate(rawinputblock(position_to_key[bucket][pos]) ^ index_masks[hash_idx][bucket], rawdb_[position_to_key[bucket][pos]] ^ entry_masks[hash_idx][bucket]) : 0;
+            utils::check(entries_list[bucket][hash_idx] == gt_entry, fmt::format("Decode problem. {} != {}", entries_list[bucket][hash_idx].to_string(), gt_entry.to_string()));
             auto idx = index ^ index_masks[hash_idx][bucket];
             auto data = entry ^ entry_masks[hash_idx][bucket];
             if (idx == queries[original_index] && data == rawdb_[queries[original_index].to_ullong()]) {

@@ -17,7 +17,7 @@ BatchPIRClient::BatchPIRClient(BatchPirParams &params)
     prepare_pir_clients();
 }
 
-vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> batch)
+vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<string> batch)
 {
 
     if (batch.size() != batchpir_params_->get_batch_size())
@@ -91,7 +91,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<vector<string>> b
 
 
 // batch contains the hash values
-bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
+bool BatchPIRClient::cuckoo_hash(vector<string> batch)
 {
 
     size_t total_buckets = batchpir_params_->get_num_buckets();
@@ -111,7 +111,8 @@ bool BatchPIRClient::cuckoo_hash(vector<vector<string>> batch)
     
     for (int i = 0; i < batch_size; i++)
     {
-        utils::get_candidates_with_hash_values(total_buckets, bucket_size, batch[i], key_to_buckets[i], key_to_position[i]);
+        key_to_buckets[i] = utils::get_candidate_buckets(batch[i], w, total_buckets);
+        key_to_position[i] = utils::get_candidate_positions(batch[i], w, bucket_size);
     }
 
     srand(time(nullptr)); // Used for local cuckoo hashing, no need to be cryptographically secure. 

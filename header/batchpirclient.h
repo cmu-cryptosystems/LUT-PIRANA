@@ -14,7 +14,7 @@ using namespace std;
 class BatchPIRClient {
 public:
     BatchPIRClient(BatchPirParams& params);
-    vector<vector<PIRQuery>> create_queries(vector<vector<string>> batch);
+    vector<vector<PIRQuery>> create_queries(vector<string> batch);
     vector<utils::EncodedDB> decode_responses(vector<PIRResponseList> responses);
 
     std::pair<vector<seal_byte>, vector<seal_byte>> get_public_keys();
@@ -76,7 +76,7 @@ private:
 
     vector<seal_byte> glk_buffer, rlk_buffer;
 
-    bool cuckoo_hash(vector<vector<string>> batch);
+    bool cuckoo_hash(vector<string> batch);
     void prepare_pir_clients();
 };
 
