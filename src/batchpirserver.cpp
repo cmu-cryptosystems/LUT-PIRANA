@@ -83,7 +83,6 @@ void BatchPIRServer::lowmc_prepare(keyblock oprf_key, prefixblock oprf_prefix) {
     candidate_positions_array.resize(db_entries);
 
     string str_prefixes = oprf_prefix.to_string();
-    uint64_t lowbits_mask = (1ULL << BucketHashLength) - 1;
 
     #pragma omp parallel for if(parallel)
     for (uint64_t i = 0; i < db_entries; i++) {

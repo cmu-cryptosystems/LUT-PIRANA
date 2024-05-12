@@ -99,7 +99,7 @@ int batchpir_main(int argc, char* argv[])
     vector<string> batch(choice[0]);
     for (int i = 0; i < choice[0]; i++)
     {
-        plain_queries[i] = rawinputblock(choice[1] - (choice[0] / 2) + i);
+        plain_queries[i] = rawinputblock(i);
         if (params.get_hash_type() == HashType::LowMC) {
             auto message = utils::concatenate(lowmc_prefix, plain_queries[i]);
             batch[i] = batch_server.lowmc_oprf->encrypt(message).to_string();
