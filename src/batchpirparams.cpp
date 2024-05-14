@@ -5,7 +5,7 @@
 
 using namespace DatabaseConstants;
 
-BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type, HashType hash_type, uint64_t pirana_k)
+BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type, HashType hash_type)
     : batch_size_(batch_size),
       parallel(parallel),
       type_(type),  
@@ -34,7 +34,7 @@ BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type,
         size_t num_subbucket = max_slots / num_buckets;
         size_t subbucket_size = ceil(get_bucket_size() * 1.0 / num_subbucket);
         
-        for (PIRANA_m = 2; utils::choose(PIRANA_m, PIRANA_k) < subbucket_size; PIRANA_m++); 
+        for (PIRANA_m = 2; utils::choose(PIRANA_m, PIRANA_k) <= subbucket_size; PIRANA_m++); 
 
         query_size = {size_t(NumHashFunctions), 1, PIRANA_m};
         response_size = {size_t(NumHashFunctions),  num_slots_per_entry};

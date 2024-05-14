@@ -34,7 +34,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<string> batch)
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     auto default_value = batchpir_params_->get_default_value();
     auto type = batchpir_params_->get_type();
-    const auto [m, k] = batchpir_params_->get_PIRANA_params();
+    const auto m = batchpir_params_->get_PIRANA_m();
     
     Plaintext pt;
     Ciphertext ct;
@@ -53,7 +53,7 @@ vector<vector<PIRQuery>> BatchPIRClient::create_queries(vector<string> batch)
             {
                 size_t subbucket_idx = bucket_to_position[bucket_idx][hash_idx] / subbucket_size;
                 size_t offset = bucket_to_position[bucket_idx][hash_idx] % subbucket_size;
-                codes[bucket_idx] = utils::get_perfect_constant_weight_codeword(offset, m, k);
+                codes[bucket_idx] = utils::get_perfect_constant_weight_codeword(offset, m, pirana_k);
                 for (int code_dim = 0; code_dim < m; code_dim++) {
                     q[code_dim][bucket_idx*num_subbucket + subbucket_idx] = codes[bucket_idx][code_dim];
                 }

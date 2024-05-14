@@ -259,7 +259,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     size_t num_subbucket = PolyDegree / num_buckets;
     size_t subbucket_size = ceil(bucket_size * 1.0 / num_subbucket);
     size_t num_tasks_per_group = ceil(subbucket_size * 1.0 / NumTaskGroups);
-    const auto [m, k] = batchpir_params_->get_PIRANA_params();
+    const auto m = batchpir_params_->get_PIRANA_m();
     const auto w = NumHashFunctions;
     const auto num_columns_per_entry = batchpir_params_->get_num_slots_per_entry();
     auto type = batchpir_params_->get_type();
@@ -277,11 +277,6 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
         if (type == PIRANA) {
             vector<PIRResponseList> masked_value(num_columns_per_entry, PIRResponseList(NumTaskGroups));
 
-            vector<vector<long>> query_indices(subbucket_size);
-            for (int column=0; column < subbucket_size; column++) {
-                query_indices[column] = get_perfect_constant_weight_codeword_position(column, m, k);
-            }
-
             #pragma omp parallel for if(parallel)
             for (int thread_idx = 0; thread_idx < NumTaskGroups; thread_idx++) {
                 size_t col_start = thread_idx * num_tasks_per_group;
@@ -289,10 +284,12 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
 
                 for (int sub_column=0; sub_column < col_end - col_start; sub_column++) {
                     int column = col_start + sub_column;
+                    utils::check(column < subbucket_size, fmt::format("Column {}={}+{} out of range", column, col_start, sub_column)); 
                     Ciphertext mask;
 
-                    vector<Ciphertext> selected_queries(query_indices[column].size());
-                    std::transform(query_indices[column].begin(), query_indices[column].end(), selected_queries.begin(), [&](long idx) {
+                    vector<long> query_indices = get_perfect_constant_weight_codeword_position(column, m, pirana_k);
+                    vector<Ciphertext> selected_queries(pirana_k);
+                    std::transform(query_indices.begin(), query_indices.end(), selected_queries.begin(), [&](long idx) {
                         return queries[hash_idx][0][idx];
                     });
                     

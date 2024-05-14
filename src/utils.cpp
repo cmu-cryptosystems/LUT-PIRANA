@@ -44,7 +44,7 @@ namespace utils {
         uint64_t mod_size = choose(encoding_size, hamming_weight);
         if (__number >= mod_size){
             if (__verbose) 
-                cout << "Overflow occurred, everything okay?" << endl;
+                cout << fmt::format("Overflow occurred, everything okay? {} >= {}", __number, mod_size) << endl;
             __number %= mod_size;
         }
         long remainder = __number, k_prime = hamming_weight;

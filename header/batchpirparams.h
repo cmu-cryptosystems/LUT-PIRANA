@@ -10,7 +10,7 @@ using namespace seal;
 
 class BatchPirParams {
 public:
-    BatchPirParams(int batch_size, bool parallel, BatchPirType type = PIRANA, HashType hash_type = LowMC, uint64_t pirana_k = 2);
+    BatchPirParams(int batch_size, bool parallel, BatchPirType type = PIRANA, HashType hash_type = LowMC);
 
     int get_batch_size();
     size_t get_num_buckets();
@@ -22,7 +22,7 @@ public:
     bool is_parallel() {return parallel;}
     const BatchPirType get_type() {return type_;}
     const HashType get_hash_type() {return hash_type_;}
-    const auto get_PIRANA_params() {return std::make_pair(PIRANA_m, PIRANA_k);}
+    const uint64_t get_PIRANA_m() {return PIRANA_m;}
 
     void set_first_dimension_size();
     void print_params() const;

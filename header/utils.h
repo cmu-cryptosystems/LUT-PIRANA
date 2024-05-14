@@ -191,7 +191,7 @@ using namespace DatabaseConstants;
         int PlaintextModBitss = 22;
         vector<int> CoeffMods = vector<int>{55, 55, 48, 60};
         if (type == PIRANA)
-            switch (LUT_OUTPUT_SIZE) {
+            switch (LUT_INPUT_SIZE) {
                 case 16:
                 case 18: 
                     PlaintextModBitss = 20;

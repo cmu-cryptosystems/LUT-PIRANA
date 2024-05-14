@@ -21,12 +21,13 @@ namespace DatabaseConstants {
     constexpr double CuckooFactor = 2.0; // < 2^{-54} failure prob. 
     constexpr double CuckooFactorBucket = 1.6; // 2^{-54} failure prob. 
     constexpr int OutputLength = LUT_OUTPUT_SIZE;
-    constexpr int InputLength = OutputLength;
-    constexpr int DBSize = 1 << OutputLength;
+    constexpr int InputLength = LUT_INPUT_SIZE + 1;
+    constexpr int DBSize = 1 << LUT_INPUT_SIZE;
+    constexpr int pirana_k = 2;
     constexpr double FirstDimension = 32;
     // Ref: Table 1 in https://eprint.iacr.org/2017/299
     constexpr int MaxBucketSize = [](){
-        switch (LUT_OUTPUT_SIZE) {
+        switch (LUT_INPUT_SIZE) {
             case 16:
                 return 74;
             case 20:

@@ -40,8 +40,8 @@ int batchpir_main(int argc, char* argv[])
     srand(1);
     const int client_id = 0;
     //  batch size, number of entries, size of entry
-    std::vector<std::array<size_t, 3>> input_choices;
-    input_choices.push_back({4096, 1 << DatabaseConstants::OutputLength, DatabaseConstants::OutputLength / 4});
+    std::vector<size_t> input_choices;
+    input_choices.push_back(4096);
 
     std::vector<std::chrono::milliseconds> init_times;
     std::vector<std::chrono::milliseconds> query_gen_times;
@@ -56,7 +56,7 @@ int batchpir_main(int argc, char* argv[])
 
     const auto& choice = input_choices[iteration];
 
-    BatchPirParams params(choice[0], true, PIRANA, HashType::LowMC);
+    BatchPirParams params(choice, true, PIRANA, HashType::LowMC);
     params.print_params();
 
     osuCrypto::PRNG prng(osuCrypto::sysRandomSeed());
@@ -95,9 +95,9 @@ int batchpir_main(int argc, char* argv[])
     init_times.push_back(duration_init);
 
     // preparing queries
-    vector<rawinputblock> plain_queries(choice[0]);
-    vector<string> batch(choice[0]);
-    for (int i = 0; i < choice[0]; i++)
+    vector<rawinputblock> plain_queries(choice);
+    vector<string> batch(choice);
+    for (int i = 0; i < choice; i++)
     {
         plain_queries[i] = rawinputblock(i);
         if (params.get_hash_type() == HashType::LowMC) {
@@ -158,9 +158,9 @@ int batchpir_main(int argc, char* argv[])
     for (size_t i = 0; i < input_choices.size(); ++i)
     {
         cout << "Input Parameters: ";
-        cout << "Batch Size: " << input_choices[i][0] << ", ";
-        cout << "Number of Entries: " << input_choices[i][1] << ", ";
-        cout << "Entry Size: " << input_choices[i][2] << endl;
+        cout << "Batch Size: " << input_choices[i] << ", ";
+        cout << "Number of Entries: " << DatabaseConstants::DBSize << ", ";
+        cout << "Entry Size: " << DatabaseConstants::OutputLength << endl;
 
         cout << "Initialization time: " << init_times[i].count() << " milliseconds" << endl;
         cout << "Query generation time: " << query_gen_times[i].count() << " milliseconds" << endl;
