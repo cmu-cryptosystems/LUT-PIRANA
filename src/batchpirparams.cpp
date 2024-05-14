@@ -59,7 +59,7 @@ int BatchPirParams::get_batch_size() {
 }
 
 size_t BatchPirParams::get_num_buckets() {
-    return ceil(CuckooFactor * batch_size_);
+    return PolyDegree;
 }
 
 size_t BatchPirParams::get_bucket_size() {
