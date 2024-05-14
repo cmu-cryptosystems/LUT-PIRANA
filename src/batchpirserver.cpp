@@ -76,6 +76,7 @@ void BatchPIRServer::lowmc_prepare(keyblock oprf_key, prefixblock oprf_prefix) {
     const auto w = NumHashFunctions;
     auto bucket_size = batchpir_params_->get_bucket_size(); 
     bool parallel = batchpir_params_->is_parallel();
+    int num_threads = batchpir_params_->get_num_threads();
 
     lowmc_oprf = new utils::LowMC(oprf_key, oprf_prefix);
 
@@ -84,7 +85,7 @@ void BatchPIRServer::lowmc_prepare(keyblock oprf_key, prefixblock oprf_prefix) {
 
     string str_prefixes = oprf_prefix.to_string();
 
-    #pragma omp parallel for if(parallel)
+    #pragma omp parallel for if(parallel) num_threads(num_threads)
     for (uint64_t i = 0; i < db_entries; i++) {
         string oprf_output = lowmc_oprf->encrypt(
             block(str_prefixes + rawinputblock(i).to_string())
@@ -101,6 +102,7 @@ void BatchPIRServer::aes_prepare(oc::block oprf_key, std::bitset<128-DatabaseCon
     const auto w = NumHashFunctions;
     auto bucket_size = batchpir_params_->get_bucket_size(); 
     bool parallel = batchpir_params_->is_parallel();
+    int num_threads = batchpir_params_->get_num_threads();
 
     aes_oprf = new oc::AES(oprf_key);
 
@@ -113,7 +115,7 @@ void BatchPIRServer::aes_prepare(oc::block oprf_key, std::bitset<128-DatabaseCon
     high_prefix = block(str.substr(0, 64)).to_ullong();
     low_prefix = str.substr(64);
 
-    #pragma omp parallel for if(parallel)
+    #pragma omp parallel for if(parallel) num_threads(num_threads)
     for (uint64_t i = 0; i < db_entries; i++) {
         alignas(16) uint64_t data[2];
         data[0] = block(low_prefix + rawinputblock(i).to_string()).to_ullong();
@@ -133,6 +135,7 @@ void BatchPIRServer::hash_encode() {
     auto bucket_size = batchpir_params_->get_bucket_size();
     const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
+    int num_threads = batchpir_params_->get_num_threads();
 
     srand(time(nullptr)); // Used for local cuckoo hashing, no need to be cryptographically secure. 
 
@@ -148,7 +151,7 @@ void BatchPIRServer::hash_encode() {
     }
 
     position_to_key.resize(total_buckets);
-    #pragma omp parallel for if(parallel)
+    #pragma omp parallel for if(parallel) num_threads(num_threads)
     for (int bucket_idx = 0; bucket_idx < total_buckets; bucket_idx++) {
         for (auto& i: insert_buffer[bucket_idx]) {
             cuckoo_insert(i, 0, candidate_positions_array, position_to_key[bucket_idx]);
@@ -162,12 +165,13 @@ void BatchPIRServer::hash_encrypt() {
     auto bucket_size = batchpir_params_->get_bucket_size();
     const auto w = NumHashFunctions;
     bool parallel = batchpir_params_->is_parallel();
+    int num_threads = batchpir_params_->get_num_threads();
     auto type = batchpir_params_->get_type();
     
     if (type == UIUC) {
         for (int hash_idx = 0; hash_idx < w; hash_idx++) 
             buckets_[hash_idx].resize(total_buckets, EncodedDB(bucket_size));
-        #pragma omp parallel for if(parallel) collapse(2)
+        #pragma omp parallel for if(parallel) collapse(2) num_threads(num_threads)
         for (int hash_idx = 0; hash_idx < w; hash_idx++) {
             for(size_t b = 0; b < total_buckets; b++) {
                 for (auto const &[pos, idx] : position_to_key[b]) {
@@ -268,6 +272,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
     size_t per_server_capacity = max_slots / dim_size;
     size_t num_servers = ceil(num_buckets * 1.0 / per_server_capacity);
     bool parallel = batchpir_params_->is_parallel();
+    int num_threads = batchpir_params_->get_num_threads();
     const int size_of_coeff = plaint_bit_count_ - 1;
     auto pid = context_->first_parms_id();
 
@@ -277,7 +282,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
         if (type == PIRANA) {
             vector<PIRResponseList> masked_value(num_columns_per_entry, PIRResponseList(NumTaskGroups));
 
-            #pragma omp parallel for if(parallel)
+            #pragma omp parallel for if(parallel) num_threads(num_threads)
             for (int thread_idx = 0; thread_idx < NumTaskGroups; thread_idx++) {
                 size_t col_start = thread_idx * num_tasks_per_group;
                 size_t col_end = std::min((thread_idx + 1) * num_tasks_per_group, subbucket_size);
@@ -338,7 +343,7 @@ vector<PIRResponseList> BatchPIRServer::generate_response(uint32_t client_id, ve
                 }
             }
             
-            #pragma omp parallel for if(parallel)
+            #pragma omp parallel for if(parallel) num_threads(num_threads)
             for (int slot_idx = 0; slot_idx < num_columns_per_entry; slot_idx++) {
                 evaluator_->add_many(masked_value[slot_idx], response[hash_idx][slot_idx]);
                 evaluator_->transform_from_ntt_inplace(response[hash_idx][slot_idx]);

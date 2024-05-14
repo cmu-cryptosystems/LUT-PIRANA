@@ -56,7 +56,7 @@ int batchpir_main(int argc, char* argv[])
 
     const auto& choice = input_choices[iteration];
 
-    BatchPirParams params(choice, true, PIRANA, HashType::LowMC);
+    BatchPirParams params(choice, true, 16, PIRANA, HashType::LowMC);
     params.print_params();
 
     osuCrypto::PRNG prng(osuCrypto::sysRandomSeed());

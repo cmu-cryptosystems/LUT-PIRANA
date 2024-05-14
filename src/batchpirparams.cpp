@@ -5,9 +5,10 @@
 
 using namespace DatabaseConstants;
 
-BatchPirParams::BatchPirParams(int batch_size, bool parallel, BatchPirType type, HashType hash_type)
+BatchPirParams::BatchPirParams(int batch_size, bool parallel, int num_threads, BatchPirType type, HashType hash_type)
     : batch_size_(batch_size),
       parallel(parallel),
+      num_threads(num_threads),
       type_(type),  
       hash_type_(hash_type),
       PIRANA_k(pirana_k) {

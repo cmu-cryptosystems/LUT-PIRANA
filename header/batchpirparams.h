@@ -10,7 +10,7 @@ using namespace seal;
 
 class BatchPirParams {
 public:
-    BatchPirParams(int batch_size, bool parallel, BatchPirType type = PIRANA, HashType hash_type = LowMC);
+    BatchPirParams(int batch_size, bool parallel, int num_threads, BatchPirType type = PIRANA, HashType hash_type = LowMC);
 
     int get_batch_size();
     size_t get_num_buckets();
@@ -20,6 +20,7 @@ public:
     uint32_t get_num_slots_per_entry();
     seal::EncryptionParameters get_seal_parameters() const;
     bool is_parallel() {return parallel;}
+    const int get_num_threads() {return num_threads;}
     const BatchPirType get_type() {return type_;}
     const HashType get_hash_type() {return hash_type_;}
     const uint64_t get_PIRANA_m() {return PIRANA_m;}
@@ -35,6 +36,7 @@ private:
     uint64_t default_value_ = 0;
     seal::EncryptionParameters seal_params_;
     bool parallel;
+    int num_threads;
     BatchPirType type_;
     HashType hash_type_;
     uint64_t PIRANA_m = 0;
