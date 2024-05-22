@@ -41,12 +41,13 @@ void BatchPIRServer::initialize() {
 void BatchPIRServer::populate_raw_db(std::function<rawdatablock(size_t)> generator)
 {
     const auto db_entries = DBSize;
+    int num_threads = batchpir_params_->get_num_threads();
 
     // Resize the rawdb vector to the correct size
     rawdb_.resize(db_entries);
 
     // Populate the rawdb vector with entries
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(num_threads)
     for (size_t i = 0; i < db_entries; ++i)
     {
         rawdb_[i] = generator(i);
