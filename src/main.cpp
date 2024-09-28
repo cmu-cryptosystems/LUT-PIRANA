@@ -56,7 +56,7 @@ int batchpir_main(int argc, char* argv[])
 
     const auto& choice = input_choices[iteration];
 
-    BatchPirParams params(choice, true, 16, PIRANA, HashType::LowMC);
+    BatchPirParams params(choice, (1 << LUT_INPUT_SIZE), true, 32, PIRANA, HashType::LowMC);
     params.print_params();
 
     osuCrypto::PRNG prng(osuCrypto::sysRandomSeed());
@@ -159,7 +159,7 @@ int batchpir_main(int argc, char* argv[])
     {
         cout << "Input Parameters: ";
         cout << "Batch Size: " << input_choices[i] << ", ";
-        cout << "Number of Entries: " << DatabaseConstants::DBSize << ", ";
+        cout << "Number of Entries: " << (1 << LUT_INPUT_SIZE) << ", ";
         cout << "Entry Size: " << DatabaseConstants::OutputLength << endl;
 
         cout << "Initialization time: " << init_times[i].count() << " milliseconds" << endl;

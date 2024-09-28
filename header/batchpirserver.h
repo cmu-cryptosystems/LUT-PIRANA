@@ -27,6 +27,7 @@ public:
     bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
+    void populate_raw_db(std::map<size_t, size_t>& lut);
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset_insecure<DatabaseConstants::OutputLength>(); });
    
     utils::LowMC* lowmc_oprf;
@@ -71,6 +72,7 @@ public:
 private:
     BatchPirParams *batchpir_params_;
     RawDB rawdb_;
+    std::vector<uint64_t> input_keys;
     array<vector<EncodedDB>, DatabaseConstants::NumHashFunctions> buckets_;
     bool is_db_populated;
     bool hash_encoded;

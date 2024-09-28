@@ -95,7 +95,6 @@ bool BatchPIRClient::cuckoo_hash(vector<string> batch)
 {
 
     size_t total_buckets = batchpir_params_->get_num_buckets();
-    const auto db_entries = DBSize;
     size_t bucket_size = batchpir_params_->get_bucket_size();
     auto batch_size = batchpir_params_->get_batch_size();
     const auto w = NumHashFunctions;

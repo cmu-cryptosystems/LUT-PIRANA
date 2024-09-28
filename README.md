@@ -15,7 +15,7 @@ Before proceeding with the compilation, ensure that your system has [CMake](http
 After installing CMake and the Microsoft SEAL Library, navigate to the root directory of the project and execute the following commands:
 
 ```
-cmake -S . -B build -DLUT_INPUT_SIZE=16 -DLUT_OUTPUT_SIZE=64
+cmake -S . -B build -DLUT_INPUT_SIZE=20 -DLUT_OUTPUT_SIZE=64
 cmake --build build --parallel && ./build/bin/vectorized_batch_pir
 ```
 

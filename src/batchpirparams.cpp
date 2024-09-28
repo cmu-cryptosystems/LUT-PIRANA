@@ -5,15 +5,16 @@
 
 using namespace DatabaseConstants;
 
-BatchPirParams::BatchPirParams(int batch_size, bool parallel, int num_threads, BatchPirType type, HashType hash_type)
+BatchPirParams::BatchPirParams(int batch_size, int db_size, bool parallel, int num_threads, BatchPirType type, HashType hash_type)
     : batch_size_(batch_size),
+      db_size_(db_size), 
       parallel(parallel),
       num_threads(num_threads),
       type_(type),  
       hash_type_(hash_type),
       PIRANA_k(pirana_k) {
 
-    std::string selection = std::to_string(batch_size) + "," + std::to_string(DBSize) + "," + std::to_string(utils::datablock_size);
+    std::string selection = std::to_string(batch_size) + "," + std::to_string(db_size) + "," + std::to_string(utils::datablock_size);
     std::tie(seal_params_, noise_bits) = utils::create_encryption_parameters(selection, type);
     auto max_slots = PolyDegree;
     auto num_buckets = get_num_buckets();
@@ -54,8 +55,12 @@ uint32_t BatchPirParams::get_num_slots_per_entry() {
     return ceil((utils::datablock_size * 1.0) / (seal_params_.plain_modulus().bit_count()-1));
 }
 
-int BatchPirParams::get_batch_size() {
+size_t BatchPirParams::get_batch_size() {
     return batch_size_;
+}
+
+size_t BatchPirParams::get_db_size() {
+    return db_size_;
 }
 
 size_t BatchPirParams::get_num_buckets() {
@@ -94,7 +99,7 @@ std::cout << "+---------------------------------------------------+" << std::end
 std::cout << std::left << std::setw(20) << "| NumHashFunctions: " << NumHashFunctions << std::endl;
 std::cout << std::left << std::setw(20) << "| batch_size_: " << batch_size_ << std::endl;
 std::cout << std::left << std::setw(20) << "| CuckooFactor: " << CuckooFactor << std::endl;
-std::cout << std::left << std::setw(20) << "| DBSize: " << DBSize << std::endl;
+std::cout << std::left << std::setw(20) << "| DBSize: " << db_size_ << std::endl;
 std::cout << std::left << std::setw(20) << "| MaxAttempts: " << MaxAttempts << std::endl;
 std::cout << "+---------------------------------------------------+" << std::endl;
 }

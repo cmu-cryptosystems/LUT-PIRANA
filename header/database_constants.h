@@ -22,7 +22,6 @@ namespace DatabaseConstants {
     constexpr double CuckooFactorBucket = 1.6; // 2^{-54} failure prob. 
     constexpr int OutputLength = LUT_OUTPUT_SIZE;
     constexpr int InputLength = LUT_INPUT_SIZE + 1;
-    constexpr int DBSize = 1 << LUT_INPUT_SIZE;
     constexpr int pirana_k = 2;
     constexpr double FirstDimension = 32;
     // Ref: Table 1 in https://eprint.iacr.org/2017/299

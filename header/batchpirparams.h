@@ -10,9 +10,10 @@ using namespace seal;
 
 class BatchPirParams {
 public:
-    BatchPirParams(int batch_size, bool parallel, int num_threads, BatchPirType type = PIRANA, HashType hash_type = LowMC);
+    BatchPirParams(int batch_size, int db_size, bool parallel, int num_threads, BatchPirType type = PIRANA, HashType hash_type = LowMC);
 
-    int get_batch_size();
+    size_t get_batch_size();
+    size_t get_db_size();
     size_t get_num_buckets();
     size_t get_bucket_size();
     size_t get_first_dimension_size();
@@ -31,7 +32,8 @@ public:
     uint64_t noise_bits;
 
 private:
-    int batch_size_= 0;
+    size_t batch_size_= 0;
+    size_t db_size_ = 0;
     size_t dim_size_= 1;
     uint64_t default_value_ = 0;
     seal::EncryptionParameters seal_params_;
