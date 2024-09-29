@@ -1,4 +1,5 @@
 #include "batchpirserver.h"
+#include "LowMC.h"
 #include "utils.h"
 #include <algorithm>
 #include <cassert>
@@ -39,6 +40,24 @@ void BatchPIRServer::initialize() {
 }
 
 void BatchPIRServer::populate_raw_db(std::map<size_t, size_t>& lut)
+{
+    int num_threads = batchpir_params_->get_num_threads();
+    input_keys.reserve(lut.size());
+
+    // Resize the rawdb vector to the correct size
+    rawdb_.reserve(lut.size());
+
+    // Populate the rawdb vector with entries
+    for (auto& item : lut)
+    {
+        input_keys.push_back(item.first);
+        rawdb_.push_back(item.second);
+    }
+    is_db_populated = true;
+}
+
+
+void BatchPIRServer::populate_raw_db(std::map<size_t, rawdatablock>& lut)
 {
     int num_threads = batchpir_params_->get_num_threads();
     input_keys.reserve(lut.size());
