@@ -191,7 +191,7 @@ using namespace DatabaseConstants;
         int PlaintextModBitss = 22;
         vector<int> CoeffMods = vector<int>{55, 55, 48, 60};
         if (type == PIRANA)
-            switch (LUT_INPUT_SIZE) {
+            switch (LUT_MAX_LOG_SIZE) {
                 case 16:
                 case 18: 
                     PlaintextModBitss = 20;
@@ -219,7 +219,7 @@ using namespace DatabaseConstants;
                     noise_bits = 157;
                     break;
                 default:
-                    throw std::runtime_error("Error: LUT_OUTPUT_SIZE not supported");
+                    throw std::runtime_error("Error: LUT_MAX_LOG_SIZE not supported");
             }
 
         seal_params.set_poly_modulus_degree(PolyDegree);

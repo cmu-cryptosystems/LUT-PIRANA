@@ -26,7 +26,7 @@ namespace DatabaseConstants {
     constexpr double FirstDimension = 32;
     // Ref: Table 1 in https://eprint.iacr.org/2017/299
     constexpr int MaxBucketSize = [](){
-        switch (LUT_INPUT_SIZE) {
+        switch (LUT_MAX_LOG_SIZE) {
             case 16:
                 return 74;
             case 20:
