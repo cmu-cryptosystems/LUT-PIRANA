@@ -39,6 +39,23 @@ void BatchPIRServer::initialize() {
     prepare_pir_server();
 }
 
+void BatchPIRServer::populate_raw_db(std::vector<size_t>& lut)
+{
+    int num_threads = batchpir_params_->get_num_threads();
+    input_keys.reserve(lut.size());
+
+    // Resize the rawdb vector to the correct size
+    rawdb_.reserve(lut.size());
+
+    // Populate the rawdb vector with entries
+    for (int i=0; i<lut.size(); i++)
+    {
+        input_keys.push_back(i);
+        rawdb_.push_back(lut[i]);
+    }
+    is_db_populated = true;
+}
+
 void BatchPIRServer::populate_raw_db(std::map<size_t, size_t>& lut)
 {
     int num_threads = batchpir_params_->get_num_threads();

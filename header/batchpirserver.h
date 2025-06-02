@@ -27,6 +27,7 @@ public:
     bool check_decoded_entries(vector<EncodedDB> entries_list, vector<rawinputblock>& queries, std::unordered_map<uint64_t, uint64_t> cuckoo_map);
 
     void initialize();
+    void populate_raw_db(std::vector<size_t>& lut);
     void populate_raw_db(std::map<size_t, size_t>& lut);
     void populate_raw_db(std::map<size_t, rawdatablock>& lut);
     void populate_raw_db(std::function<rawdatablock(size_t)> generator = [](size_t i){return random_bitset_insecure<DatabaseConstants::OutputLength>(); });
