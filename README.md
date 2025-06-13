@@ -1,55 +1,32 @@
-# Vectorized Batch Private Information Retrieval
+# BatchPIR protocol for FABLE
 
-This repository contains an implementation of the Vectorized Batch Private Information Retrieval (PIR) Protocol published in IEEE Security and Privacy, 2023. The protocol introduces a novel approach where both communication and computation are amortized over a batch of entries, resulting in significantly lower communication overhead for small entry sizes (ranging from 32 bytes to 256 bytes). Specifically, for a batch of 256 entries and an entry size of 32 bytes, the communication overhead is 11 times less compared to previous schemes.
+This repository contains an implementation of PIRANA (https://eprint.iacr.org/2022/1401), which is modified for the use of FABLE (https://eprint.iacr.org/2025/1081). The implementation is based on https://github.com/mhmughees/vectorized_batchpir rather than PIRANA's official implementation, because it was not released at the time we develop FABLE. 
 
-The paper detailing the protocol can be found [here](https://ia.cr/2022/1262).
+> [!WARNING]
+> This library is not intended to be used as a standalone implementation for batchPIR, as it contains a lot of modifications tailored for FABLE. You don't need to build and install this library if you intend to build FABLE (https://github.com/timzsu/FABLE). 
 
-## Dependencies
+## Build the code as a standalone library
 
-This code relies on the [Microsoft SEAL Library](https://github.com/Microsoft/SEAL#citing-microsoft-seal). Make sure to install version 4.1 of this library globally.
+Although the code is not intended to be built as a standalone library, you could still build it and run it as a PIR protocol. 
 
-## Compilation
+To build the repository, first install the following libraries globally. 
 
-Before proceeding with the compilation, ensure that your system has [CMake](https://cmake.org) installed, preferably a version above 3.0.
+- [SEAL v4.1.1](https://github.com/microsoft/SEAL/tree/v4.1.1)
+- [fmt](https://github.com/fmtlib/fmt)
+- [libOTe](https://github.com/osu-crypto/libOTe)
 
-After installing CMake and the Microsoft SEAL Library, navigate to the root directory of the project and execute the following commands:
-
-```
+To build the project, run
+```bash
 cmake -S . -B build -DLUT_INPUT_SIZE=20 -DLUT_OUTPUT_SIZE=64
-cmake --build build --parallel && ./build/bin/vectorized_batch_pir
+cmake --build build --parallel
 ```
 
-Once the build process is complete, run the following command to execute the Vectorized Batch PIR:
+Once the build process is complete, run the following command to execute the Batch PIR:
 
-```
+```bash
 ./build/bin/vectorized_batch_pir
 ```
 
-This will run the Vectorized Batch PIR for the three input scenarios mentioned below:
+## Acknowledgment
 
-| Batch Size | Database Size | Entry Size |
-|------------|---------------|------------|
-| 32         | 1048576       | 32         |
-| 64         | 1048576       | 32         |
-| 256        | 1048576       | 32         |
-
-## Expected Output
-
-Upon processing the inputs, the terminal should display a similar output:
-
-![Terminal Output](https://github.com/mhmughees/vectorized_batchpir/assets/6435443/5112f7e3-2087-4223-88f1-4abf2037357d)
-
-
-## FHE Parameter Selection
-
-The performance of the protocol heavily relies on the selection of fully homomorphic encryption (FHE) parameters. We have provided the best-performing parameters for the given example inputs. However, we encourage developers to select the parameters that yield the best performance for their specific applications. Please refer to [this section](https://github.com/mhmughees/vectorized_batchpir/blob/370780f0bd58a99f18dda60e6fb2cde5c2e815f4/src/utils.h#L108) for parameter selection details.
-
-## Contributors
- - [Muhammad Haris Mughees(Lead)](https://mhmughees.github.io)
- - [Ling Ren](https://sites.google.com/view/renling)
-
-*Acknowledgment: Sun I (is16@illinois.edu) for helping with testing the code*
-
-## ⚠️ Important Warning
-
-This implementation is intended for research purposes only. The code has NOT been vetted by security experts. Therefore, no part of this code should be used in any real-world or production setting.
+We appreciate [Muhammad Haris Mughees](https://mhmughees.github.io) for the open-sourced implementation of batch PIR. 

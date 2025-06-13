@@ -19,15 +19,11 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h")
 # Create executable target and add source files
 add_executable(vectorized_batch_pir ${SOURCES})
 
-# Add the executable target
-# add_executable(vectorized_batch_pir main.cpp client.cpp server.cpp pirparams.cpp utils.h batchpirparams.cpp batchpirserver.cpp batchpirclient.cpp)
-
 # Set include directories
 target_include_directories(vectorized_batch_pir PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Set C++ standard
 set_target_properties(vectorized_batch_pir PROPERTIES CXX_STANDARD 11)
-
 
 # Add seal library
 find_package(SEAL 4.1 REQUIRED)
