@@ -1,6 +1,6 @@
-# BatchPIR protocol for FABLE
+# LUT-PIRANA: A BatchPIR Protocol for FABLE
 
-This repository contains an implementation of PIRANA (https://eprint.iacr.org/2022/1401), which is modified for the use of FABLE (https://eprint.iacr.org/2025/1081). The implementation is based on https://github.com/mhmughees/vectorized_batchpir rather than PIRANA's official implementation, because it was not released at the time we develop FABLE. 
+This repository contains a modified implementation of PIRANA (https://eprint.iacr.org/2022/1401) for FABLE (https://eprint.iacr.org/2025/1081). The implementation is based on https://github.com/mhmughees/vectorized_batchpir rather than PIRANA's official implementation (https://github.com/zju-abclab/PIRANA), as it was not released at the time FABLE was developed. 
 
 > [!WARNING]
 > This library is not intended to be used as a standalone implementation for batchPIR, as it contains a lot of modifications tailored for FABLE. You don't need to build and install this library if you intend to build FABLE (https://github.com/timzsu/FABLE). 
